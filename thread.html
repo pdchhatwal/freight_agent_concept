@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ops Thread</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="shared.css?v=3">
+<style>
+  .app { display: grid; grid-template-columns: minmax(0, 1fr) 300px; min-height: calc(100vh - 44px); }
+  .thread { display: flex; flex-direction: column; min-width: 0; }
+  .th-h { padding: 16px 28px; border-bottom: 1px solid var(--line); background: var(--surface); display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; justify-content: space-between; }
+  .th-h h1 { font-size: 17px; font-weight: 600; }
+  .th-h p { font-size: 12.5px; color: var(--ink-2); }
+  .msgs { flex: 1; padding: 22px 28px 12px; display: grid; gap: 22px; align-content: start; max-width: 880px; width: 100%; margin-inline: auto; }
+
+  .msg { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; animation: settle .3s ease-out; }
+  .av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font: 600 12px var(--f-cond); background: var(--ink); color: var(--on-ink); }
+  .av.agent { border-radius: 8px; background: var(--agent); color: var(--on-agent); }
+  .av.agent::before { content: ""; width: 11px; height: 11px; background: currentColor; transform: rotate(45deg); }
+  .mb { display: grid; gap: 8px; min-width: 0; }
+  .mh { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font-size: 13px; }
+  .mh b { font-weight: 600; }
+  .mh time { font: 400 12px var(--f-mono); color: var(--ink-3); }
+  .mh .tagline { font-size: 11.5px; color: var(--ink-3); }
+  .mt { max-width: 68ch; }
+  .mt b { font-weight: 600; }
+
+  details.work { font-size: 12.5px; color: var(--ink-3); }
+  details.work summary { cursor: pointer; list-style: none; display: inline-flex; gap: 6px; align-items: center; }
+  details.work summary::-webkit-details-marker { display: none; }
+  details.work summary::before { content: "▸"; transition: transform .15s; }
+  details.work[open] summary::before { transform: rotate(90deg); }
+  details.work ol { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 2px; font-family: var(--f-mono); font-size: 11.5px; }
+  .thinking { display: flex; gap: 10px; align-items: center; color: var(--ink-2); font-size: 13px; }
+  .thinking .dots { display: inline-flex; gap: 3px; }
+  .thinking .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--agent); animation: pulse 1s ease-in-out infinite; }
+  .thinking .dots i:nth-child(2) { animation-delay: .15s; }
+  .thinking .dots i:nth-child(3) { animation-delay: .3s; }
+
+  /* Widgets */
+  .w { border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); overflow: hidden; max-width: 680px; }
+  .w-h { padding: 12px 14px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px; border-bottom: 1px solid var(--line); }
+  .w-h b { font-weight: 600; }
+  .w-b { padding: 12px 14px; display: grid; gap: 12px; }
+  .w-f { padding: 8px 14px; border-top: 1px solid var(--line); background: var(--sunken); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .prov { font: 400 11px/1.5 var(--f-mono); color: var(--ink-3); }
+  .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .bars { display: grid; gap: 10px; }
+  .bar-row { display: grid; grid-template-columns: 100px minmax(0, 1fr) 64px; gap: 10px; align-items: center; font-size: 13px; }
+  .bar-row .track { height: 8px; border-radius: 4px; background: var(--sunken); overflow: hidden; }
+  .bar-row .fill { height: 100%; background: var(--line-2); border-radius: 4px; }
+  .bar-row.pick .fill { background: var(--agent); }
+  .bar-row.pick span:first-child { font-weight: 600; }
+  .bar-row .v { text-align: right; font: 500 12.5px var(--f-mono); }
+  .bars-sub { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .rule-chip { display: grid; gap: 4px; padding: 10px 12px; background: var(--brain-soft); border-radius: var(--r-sm); font-size: 13px; }
+  .rule-chip q { quotes: none; font-style: italic; }
+
+  .countdown { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--agent-soft); border-radius: var(--r-sm); }
+  .countdown b { font: 600 20px var(--f-mono); color: var(--agent-ink); }
+  .answered { font-size: 12.5px; color: var(--ink-2); display: flex; gap: 8px; align-items: center; }
+
+  .risk { display: grid; gap: 0; }
+  .risk-row { display: grid; grid-template-columns: 6px 84px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 13px; }
+  .risk-row:first-child { border-top: 0; }
+  .risk-row .sev { width: 6px; height: 28px; border-radius: 3px; }
+  .risk-row .id { font: 500 12.5px var(--f-mono); }
+  .risk-row .what { color: var(--ink-2); }
+  .risk-row .what b { color: var(--ink); font-weight: 500; }
+
+  .blast { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .blast th { text-align: left; font: 600 10.5px var(--f-cond); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 0 8px 6px; border-bottom: 1px solid var(--line); }
+  .blast td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .blast tr:last-child td { border-bottom: 0; }
+  .blast .bad { color: var(--crit); }
+  .blast .id { font: 500 12.5px var(--f-mono); }
+  .blast input { accent-color: var(--agent); }
+  .tbl { overflow-x: auto; }
+  .opts { display: grid; gap: 6px; font-size: 13px; }
+  .opts label { display: flex; gap: 8px; align-items: flex-start; }
+  .opts input { accent-color: var(--agent); margin-top: 3px; }
+  .dry { border: 1px dashed var(--agent); border-radius: var(--r-sm); padding: 10px 12px; display: grid; gap: 6px; font-size: 13px; background: var(--agent-soft); }
+  .dry ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+  .done-box { padding: 10px 12px; border-radius: var(--r-sm); background: var(--ok-soft); color: var(--ink); font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+
+  .draft-hdr { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 2px 8px; font-size: 12.5px; color: var(--ink-2); }
+  .draft-hdr b { color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
+  .draft textarea { width: 100%; min-height: 170px; border: 1px solid var(--line-2); border-radius: var(--r-sm); padding: 10px; background: var(--surface); line-height: 1.5; resize: vertical; }
+  .files { display: flex; flex-wrap: wrap; gap: 6px; }
+  .file { font: 500 11.5px var(--f-mono); padding: 4px 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--sunken); }
+  .confirm { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 10px 12px; background: var(--attn-soft); border-radius: var(--r-sm); }
+  .confirm input { accent-color: var(--attn); margin-top: 3px; }
+
+  .digest { display: grid; gap: 0; }
+  .dg { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--line); font-size: 13px; align-items: baseline; }
+  .dg:first-child { border-top: 0; }
+  .dg time { font: 400 12px var(--f-mono); color: var(--ink-3); }
+  .dg .btn { min-height: 24px; }
+
+  .clar { display: grid; gap: 8px; }
+  .clar .acts .btn { white-space: normal; text-align: left; }
+
+  /* Composer */
+  .composer { position: sticky; bottom: 0; padding: 12px 28px calc(16px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to bottom, transparent, var(--bg) 18px); max-width: 880px; width: 100%; margin-inline: auto; }
+  .sugg-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .sugg { font-size: 12.5px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); cursor: pointer; color: var(--ink-2); }
+  .sugg:hover { color: var(--ink); border-color: var(--ink-3); }
+  .sugg[disabled] { opacity: .4; cursor: default; }
+  .cbox { display: flex; gap: 8px; align-items: flex-end; padding: 8px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+  .cbox textarea { flex: 1; min-width: 0; border: 0; background: transparent; resize: none; padding: 6px; outline: none; min-height: 34px; line-height: 1.4; }
+  .scope-btn { font-size: 12px; border: 1px solid var(--line); background: var(--sunken); border-radius: 6px; padding: 5px 8px; cursor: pointer; color: var(--ink-2); white-space: nowrap; }
+
+  /* Side */
+  .side { border-left: 1px solid var(--line); background: var(--surface); padding: 18px; display: grid; gap: 22px; align-content: start; }
+  .side section { display: grid; gap: 8px; }
+  .side h2 { font-size: 13.5px; font-weight: 600; }
+  .side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+  .side li { display: flex; gap: 8px; align-items: baseline; }
+  .side li .k { color: var(--ink-3); min-width: 56px; font-size: 12px; }
+  .cant li::before { content: "✕"; color: var(--crit); font-size: 11px; }
+  .can li::before { content: "✓"; color: var(--ok); font-size: 11px; }
+
+  @keyframes settle { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  @media (max-width: 980px) {
+    .app { grid-template-columns: minmax(0, 1fr); }
+    .side { display: none; }
+  }
+  @media (max-width: 600px) {
+    .msgs, .composer { padding-left: 16px; padding-right: 16px; }
+    .th-h { padding: 14px 16px; }
+    .msg { grid-template-columns: 26px minmax(0, 1fr); gap: 10px; }
+    .av { width: 26px; height: 26px; }
+    .bars-sub { grid-template-columns: 1fr; }
+    .bar-row { grid-template-columns: 84px minmax(0, 1fr) 56px; }
+    .risk-row { grid-template-columns: 6px minmax(0, 1fr); }
+    .risk-row .id { grid-column: 2; }
+    .risk-row .what, .risk-row .btn { grid-column: 2; justify-self: start; }
+    .risk-row .sev { grid-row: span 3; height: 100%; }
+    .scope-btn { display: none; }
+  }
+</style>
+</head>
+<body>
+<nav class="cnav">
+  <a class="cnav-brand" href="index.html">Freight agent · concepts</a>
+  <div class="cnav-links">
+    <a href="index.html">Review</a>
+    <a href="inbox.html">1 · Attention inbox</a>
+    <a href="run.html">2 · Run trajectory</a>
+    <a href="delegation.html">3 · Delegation</a>
+    <a href="thread.html" aria-current="page">4 · Ops thread</a>
+  </div>
+</nav>
+
+<div class="app">
+  <div class="thread">
+    <header class="th-h">
+      <div><h1>Ops thread</h1><p>The agent and the Singapore ops team. Answers come back as things you can act on.</p></div>
+      <span class="pill agent"><span class="dot live"></span>Agent watching 48 runs</span>
+    </header>
+
+    <div class="msgs" id="msgs" aria-live="polite"></div>
+
+    <div class="composer">
+      <div class="sugg-row" id="suggs">
+        <button class="sugg" data-q="risk">What's at risk today?</button>
+        <button class="sugg" data-q="hold">Hold every Jakarta shipment until Monday, there's a port strike</button>
+        <button class="sugg" data-q="customs">Draft the customs reply for SHP-2033</button>
+        <button class="sugg" data-q="lunch">What did you do while I was at lunch?</button>
+      </div>
+      <form class="cbox" id="form" autocomplete="off">
+        <button type="button" class="scope-btn" id="scope" title="What this message applies to">Scope: all runs</button>
+        <textarea id="input" rows="1" placeholder="Ask, or tell the agent what to do. It shows you the plan before acting."></textarea>
+        <button class="btn btn-primary" type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <aside class="side">
+    <section>
+      <h2>Waiting on you</h2>
+      <ul id="waiting">
+        <li><span class="k mono">2044</span><a href="inbox.html">Possible lithium, confirm contents</a></li>
+        <li><span class="k mono">2037</span><a href="inbox.html">Approve $2,860 booking</a></li>
+      </ul>
+    </section>
+    <section class="can">
+      <h2>In this thread the agent can</h2>
+      <ul>
+        <li>Read every run, quote and email</li>
+        <li>Hold or resume runs, after you confirm</li>
+        <li>Draft emails to customers and brokers</li>
+        <li>Propose rules for the company brain</li>
+      </ul>
+    </section>
+    <section class="cant">
+      <h2>It can't</h2>
+      <ul>
+        <li>Cancel shipments</li>
+        <li>Pay invoices or customs duty</li>
+        <li>Change rules without a person adding them</li>
+      </ul>
+    </section>
+    <section>
+      <h2>Context it's using</h2>
+      <ul>
+        <li><span class="k">Brain</span><a href="delegation.html#brain">v14 · 4 rules</a></li>
+        <li><span class="k">Lanes</span>SG → MY, ID, TH, VN, PH</li>
+        <li><span class="k">Time</span>Mon 19 Oct, Singapore</li>
+      </ul>
+    </section>
+  </aside>
+</div>
+
+<div class="toast" id="toast" hidden role="status" aria-live="polite"><span id="toastMsg"></span></div>
+
+<script>
+(() => {
+  const t0 = Date.now();
+  const START = 9 * 3600 + 16 * 60 + 20;
+  const now = () => START + Math.floor((Date.now() - t0) / 1000);
+  const hm = s => String(Math.floor(s / 3600)).padStart(2, "0") + ":" + String(Math.floor(s / 60) % 60).padStart(2, "0");
+  const left = s => s <= 0 ? "0:00" : Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  const msgs = document.getElementById("msgs");
+
+  function msg({ who, name, time, html, tagline }) {
+    const el = document.createElement("div");
+    el.className = "msg";
+    const initials = name.split(" ").map(x => x[0]).join("").slice(0, 2);
+    el.innerHTML = `<div class="av ${who === "agent" ? "agent" : ""}">${who === "agent" ? "" : initials}</div>
+      <div class="mb"><div class="mh"><b>${name}</b><time>${time}</time>${tagline ? `<span class="tagline">${tagline}</span>` : ""}</div>${html}</div>`;
+    msgs.appendChild(el);
+    return el;
+  }
+  const scrollEnd = () => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+
+  function work(steps, secs) {
+    return `<details class="work"><summary>Worked for ${secs} s · ${steps.length} steps</summary><ol>${steps.map(s => `<li>${s}</li>`).join("")}</ol></details>`;
+  }
+
+  /* ---------- Seeded history ---------- */
+  msg({ who: "user", name: "Priya Nair", time: "09:02", html: `<p class="mt">Why did 2041 go to FastFreight when FedEx was cheaper?</p>` });
+  msg({ who: "agent", name: "Agent", time: "09:02", tagline: "answering Priya", html: `
+    ${work(["read run SHP-2041", "read rate-api responses 09:14", "matched brain rule Carrier selection (v14)", "pulled 90-day on-time by carrier, SG → KL"], 2)}
+    <p class="mt">FastFreight was <b>$22 more (1.8%)</b>. On Malaysia lanes the carrier rule prefers FastFreight when the gap is under 5%, because it's been more reliable.</p>
+    <div class="w">
+      <div class="w-h"><b>SHP-2041 · three quotes</b><span class="faint" style="font-size:12px">340 kg · SG → KL</span></div>
+      <div class="w-b">
+        <div class="bars-sub">
+          <div class="bars"><span class="label">Quote</span>
+            <div class="bar-row pick"><span>FastFreight</span><span class="track"><span class="fill" style="display:block;width:91%"></span></span><span class="v">$1,262</span></div>
+            <div class="bar-row"><span>FedEx</span><span class="track"><span class="fill" style="display:block;width:90%"></span></span><span class="v">$1,240</span></div>
+            <div class="bar-row"><span>DHL</span><span class="track"><span class="fill" style="display:block;width:100%"></span></span><span class="v">$1,380</span></div>
+          </div>
+          <div class="bars"><span class="label">On time, last 90 days</span>
+            <div class="bar-row pick"><span>FastFreight</span><span class="track"><span class="fill" style="display:block;width:98.6%"></span></span><span class="v">98.6%</span></div>
+            <div class="bar-row"><span>FedEx</span><span class="track"><span class="fill" style="display:block;width:96.1%"></span></span><span class="v">96.1%</span></div>
+            <div class="bar-row"><span>DHL</span><span class="track"><span class="fill" style="display:block;width:97.9%"></span></span><span class="v">97.9%</span></div>
+          </div>
+        </div>
+        <div class="rule-chip"><span class="who b">Carrier selection · brain v14</span><q>When cost delta &lt;5%, prefer FastFreight on SG→MY. Else pick lowest cost.</q></div>
+      </div>
+      <div class="w-f"><span class="prov">rate-api 09:14:08 · tracking-mcp 90 d · brain v14</span><span class="acts"><a class="btn btn-sm" href="run.html">Open the run</a><a class="btn btn-sm btn-ghost" href="delegation.html#brain">Question the rule</a></span></div>
+    </div>` });
+
+  msg({ who: "user", name: "Priya Nair", time: "09:03", html: `<p class="mt">Makes sense, thanks.</p>` });
+
+  // Proactive agent message with a live decision
+  const pro = msg({ who: "agent", name: "Agent", time: "09:13", tagline: "unprompted", html: `
+    <p class="mt">FastFreight hasn't accepted <b>SHP-2041</b> yet. If they don't by 09:30, I'll book FedEx at $1,240. That's inside the auto-book limit, so I won't need anyone.</p>
+    <div class="w"><div class="w-b">
+      <div class="countdown"><b id="proLeft">…</b><span class="muted">until I fall back to FedEx</span></div>
+      <div class="acts" id="proActs"><button class="btn btn-sm" data-a="now">Book FedEx now</button><button class="btn btn-sm" data-a="wait">Give them 10 more min</button><button class="btn btn-sm btn-ghost" data-a="ok">Fine, carry on</button></div>
+    </div></div>` });
+  let proDeadline = 9 * 3600 + 30 * 60 + 4;
+  pro.querySelectorAll("#proActs button").forEach(b => b.addEventListener("click", () => {
+    const a = b.dataset.a;
+    const label = { now: "Booked FedEx now.", wait: "Waiting until 09:40.", ok: "Carrying on as planned." }[a];
+    if (a === "wait") proDeadline += 600;
+    document.getElementById("proActs").outerHTML = `<div class="answered"><span class="who h">You · ${hm(now())}</span>${label}</div>`;
+    if (a === "now") { proDeadline = 0; document.getElementById("proLeft").parentElement.innerHTML = `<b>FX-88341</b><span class="muted">Booked with FedEx at $1,240. Customer email goes out in 30 s.</span>`; }
+  }));
+
+  /* ---------- Scripted answers ---------- */
+  const answers = {
+    risk: {
+      q: "What's at risk today?",
+      steps: ["scanned 48 runs", "checked tracking for 17 in transit", "read 2 port advisories (Tanjung Priok, Johor)", "ranked by cost of missing the deadline"], secs: 4,
+      html: () => `<p class="mt"><b>4 runs are at risk.</b> Two need a person, two I'm handling.</p>
+        <div class="w"><div class="risk">
+          ${[
+            ["crit", "SHP-2033", "<b>Customs hold, day 2.</b> Storage fees of S$45/day start tomorrow 09:00. Needs an HS code from you.", "Needs you"],
+            ["crit", "SHP-2044", "<b>Possible lithium batteries.</b> Pickup window closes 11:30. Needs a call on contents.", "Needs you"],
+            ["attn", "SHP-2037", "<b>Quote expires 12:00.</b> Ravi is out until 13:00. I'll ask FastFreight to extend at 11:45.", "Handling"],
+            ["attn", "SHP-2048", "<b>3 h slow at Johor.</b> Still inside the promised date. I'll tell the customer only if it slips a day.", "Watching"]
+          ].map(r => `<div class="risk-row"><span class="sev" style="background:var(--${r[0]})"></span><span class="id">${r[1]}</span><span class="what">${r[2]}</span><span class="pill ${r[3] === "Needs you" ? r[0] : "agent"}">${r[3]}</span></div>`).join("")}
+        </div><div class="w-f"><span class="prov">tracking-mcp 09:16 · customs-portal 09:10 · advisories 08:45</span><a class="btn btn-sm" href="inbox.html">Open inbox</a></div></div>`
+    },
+    hold: {
+      q: "Hold every Jakarta shipment until Monday, there's a port strike",
+      steps: ["found 6 runs with destination Jakarta (JKT, CGK, Tanjung Priok)", "checked carrier hold policies", "compared promised delivery dates with Monday 26 Oct", "drafted 2 customer notices"], secs: 5,
+      html: () => `<p class="mt">That touches <b>6 runs</b>. Two have a delivery promised before Monday, so holding them breaks a promise. Here's the plan. Nothing happens until you press Hold.</p>
+        <div class="w" id="holdW">
+          <div class="w-h"><b>Hold Jakarta shipments until Mon 26 Oct, 08:00</b><span class="faint" style="font-size:12px">Dry run first if you like</span></div>
+          <div class="w-b">
+            <div class="tbl"><table class="blast"><thead><tr><th></th><th>Run</th><th>Status</th><th>Promised</th><th>Effect of holding</th></tr></thead><tbody>
+              ${[
+                ["SHP-2037", "Awaiting approval", "Fri 23", "Misses promise by 3 days", true],
+                ["SHP-2033", "Customs hold", "Fri 16", "Already late. No extra effect", false],
+                ["SHP-2050", "Booked, DHL", "Tue 27", "Fine. DHL charges $45/day", false],
+                ["SHP-2052", "Booked, FastFreight", "Wed 28", "Fine. Free hold up to 72 h", false],
+                ["SHP-2055", "Quoting", "Fri 23", "Misses promise by 3 days", true],
+                ["SHP-2057", "Quoting", "Thu 29", "Fine", false]
+              ].map(r => `<tr><td><input type="checkbox" checked aria-label="Include ${r[0]}"></td><td class="id">${r[0]}</td><td>${r[1]}</td><td class="mono">${r[2]}</td><td class="${r[4] ? "bad" : "muted"}">${r[3]}</td></tr>`).join("")}
+            </tbody></table></div>
+            <div class="opts">
+              <label><input type="checkbox" checked id="hNotify"> Tell customers whose promised date breaks. <span class="faint">Drafts ready, you'll see them first.</span></label>
+              <label><input type="checkbox" checked> Ask carriers to hold, not cancel</label>
+              <label><input type="checkbox"> Also stop new Jakarta bookings until Monday</label>
+            </div>
+            <div id="holdOut"></div>
+          </div>
+          <div class="w-f"><span class="prov">runs query dest=JKT · carrier hold policies · advisory: Tanjung Priok strike</span><span class="acts" id="holdActs"><button class="btn btn-sm" id="hDry">Dry run</button><button class="btn btn-sm btn-agent" id="hGo">Hold 6 runs</button></span></div>
+        </div>`,
+      wire: el => {
+        const out = el.querySelector("#holdOut");
+        const picked = () => [...el.querySelectorAll(".blast tbody tr")].filter(tr => tr.querySelector("input").checked);
+        const count = () => picked().length;
+        const broken = () => picked().filter(tr => tr.querySelector(".bad")).length;
+        const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+        const emails = () => el.querySelector("#hNotify").checked && broken() ? `${plural(broken(), "customer email")}, shown to you before sending` : "No customer emails";
+        const dhl = () => picked().some(tr => tr.querySelector(".id").textContent === "SHP-2050");
+        el.querySelectorAll(".blast input").forEach(i => i.addEventListener("change", () => {
+          const go = el.querySelector("#hGo");
+          go.textContent = `Hold ${plural(count(), "run")}`;
+          go.disabled = !count();
+        }));
+        el.querySelector("#hDry").onclick = () => {
+          out.innerHTML = `<div class="dry"><span class="who a">Dry run · nothing was sent</span><ul>
+            <li>${plural(count(), "hold request")} to carriers. Cost: ${dhl() ? "$45/day for SHP-2050 (DHL), $0 for the rest" : "$0"}.</li>
+            <li>${emails()}</li>
+            <li>0 cancellations</li><li>Every held run resumes Mon 26 Oct 08:00, unless you change it</li></ul></div>`;
+        };
+        el.querySelector("#hGo").onclick = () => {
+          const n = count(), b = el.querySelector("#hNotify").checked ? broken() : 0;
+          out.innerHTML = `<div class="done-box"><span><b>Held ${plural(n, "run")}.</b> They resume Mon 26 Oct 08:00.${b ? ` The ${plural(b, "customer draft")} ${b === 1 ? "is" : "are"} in your inbox.` : ""}</span><button class="btn btn-sm" id="hUndo">Undo all</button></div>`;
+          document.getElementById("holdActs").innerHTML = `<span class="answered"><span class="who h">You · ${hm(now())}</span>Approved</span>`;
+          el.querySelector("#hUndo").onclick = () => { out.innerHTML = `<div class="dry"><span>Undone. All ${n} runs are moving again and no carrier was charged.</span></div>`; };
+        };
+      }
+    },
+    customs: {
+      q: "Draft the customs reply for SHP-2033",
+      steps: ["read customs query CQ-77812 (Bea Cukai)", "read invoice INV-55098 and product sheet PF-SW40", "found March clearance of the same SKU under 7307.29", "drafted reply to PT Lintas Cargo"], secs: 3,
+      html: () => `<p class="mt">Here's the draft. The one thing I can't be sure of is the HS code, so I've left it for you to confirm.</p>
+        <div class="w draft" id="cW">
+          <div class="w-h"><b>Reply to customs broker</b><span class="pill crit">SHP-2033 · customs hold</span></div>
+          <div class="w-b">
+            <div class="draft-hdr"><span>To</span><b>clearance@lintascargo.co.id</b><span>Subject</span><b>RE: CQ-77812, SHP-2033, line 3 classification</b></div>
+            <textarea id="cText" aria-label="Draft reply">Dear Lintas Cargo team,
+
+Thank you for the query on line 3 of SHP-2033 (stainless steel pipe fittings, 40 pcs).
+
+These are socket-weld fittings, not threaded. Please classify them under HS 7307.29. The same item (SKU PF-SW40) cleared under this code on 12 March, entry 004417.
+
+The product sheet and invoice are attached.
+
+Kind regards,
+Operations</textarea>
+            <div class="files"><span class="file">INV-55098.pdf</span><span class="file">PF-SW40-datasheet.pdf</span><span class="file">entry-004417-march.pdf</span></div>
+            <label class="confirm"><input type="checkbox" id="cOk"><span>I confirm <b class="mono">7307.29</b> is right. <span class="muted">This code sets the duty rate, so a person has to confirm it.</span></span></label>
+          </div>
+          <div class="w-f"><span class="prov">customs-portal CQ-77812 · invoice · product sheet · entry 004417</span><span class="acts" id="cActs"><button class="btn btn-sm btn-agent" id="cSend" disabled>Send to broker</button></span></div>
+        </div>`,
+      wire: el => {
+        const ok = el.querySelector("#cOk"), send = el.querySelector("#cSend");
+        ok.onchange = () => send.disabled = !ok.checked;
+        send.onclick = () => {
+          el.querySelector("#cText").readOnly = true;
+          document.getElementById("cActs").innerHTML = `<span class="answered"><span class="who h">You · ${hm(now())}</span>Sent. I'll watch for the release and tell you when the goods move.</span>`;
+        };
+      }
+    },
+    lunch: {
+      q: "What did you do while I was at lunch?",
+      steps: ["read action log 12:00–13:00", "grouped 7 actions by type", "picked 2 for you to spot-check"], secs: 2,
+      html: () => `<p class="mt">7 things between 12:00 and 13:00. None needed you. Two are worth a look because they weren't routine.</p>
+        <div class="w"><div class="digest">
+          ${[
+            ["12:04", "Booked SHP-2031 with FedEx, $640. Routine.", false],
+            ["12:09", "Sent 3 customer confirmations.", false],
+            ["12:18", "Fell back from FastFreight to FedEx on SHP-2026 after 15 min. +$34.", true],
+            ["12:31", "Rebooked pickup for SHP-2029 from 14:00 to 16:00, because the customer emailed asking.", true],
+            ["12:40", "Read 2 new booking requests, created SHP-2045 and 2046.", false],
+            ["12:52", "Checked ETAs on 17 runs. No changes.", false]
+          ].map(r => `<div class="dg"><time>${r[0]}</time><span>${r[1]}</span>${r[2] ? `<span class="acts"><button class="btn btn-sm" data-s="ok">Fine</button><button class="btn btn-sm" data-s="flag">Flag</button></span>` : "<span></span>"}</div>`).join("")}
+        </div><div class="w-f"><span class="prov">action log 12:00–13:00 · 7 entries</span><a class="btn btn-sm btn-ghost" href="run.html">Full log</a></div></div>`,
+      wire: el => el.querySelectorAll("[data-s]").forEach(b => b.addEventListener("click", () => {
+        b.parentElement.innerHTML = b.dataset.s === "ok" ? `<span class="answered">✓ Checked</span>` : `<span class="answered" style="color:var(--crit)">Flagged. Counts against the agent's record.</span>`;
+      }))
+    }
+  };
+
+  function clarify(text) {
+    return {
+      q: text, steps: ["parsed your request", "found more than one way to read it"], secs: 1,
+      html: () => `<p class="mt">Before I do anything: I can read this two ways.</p>
+        <div class="w"><div class="w-b clar">
+          <div class="acts">
+            <button class="btn" data-c="run">Just for the runs open right now</button>
+            <button class="btn" data-c="rule">As a standing instruction for future runs</button>
+          </div>
+          <div id="clarOut"></div>
+        </div><div class="w-f"><span class="prov">Your words: “${text.replace(/</g, "&lt;")}”</span></div></div>`,
+      wire: el => el.querySelectorAll("[data-c]").forEach(b => b.addEventListener("click", () => {
+        el.querySelector("#clarOut").innerHTML = b.dataset.c === "run"
+          ? `<div class="dry"><span class="who a">Plan</span><span>I'll apply it to the 6 runs in progress and show you each change before it goes out.</span></div>`
+          : `<div class="dry"><span class="who a">Plan</span><span>I'll write it up as a proposed rule and backtest it on the last 30 days. It goes to <a href="delegation.html#learned">Delegation</a> for someone to add.</span></div>`;
+      }))
+    };
+  }
+
+  let busy = false;
+  function ask(key, freeText) {
+    if (busy) return;
+    const a = key ? answers[key] : clarify(freeText);
+    busy = true;
+    msg({ who: "user", name: "You", time: hm(now()), html: `<p class="mt">${(key ? a.q : freeText).replace(/</g, "&lt;")}</p>` });
+    const thinking = msg({ who: "agent", name: "Agent", time: hm(now()), html: `<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span id="thinkTxt">${a.steps[0]}…</span></div>` });
+    scrollEnd();
+    let i = 0;
+    const iv = setInterval(() => {
+      i++;
+      const t = thinking.querySelector("#thinkTxt");
+      if (i < a.steps.length && t) { t.textContent = a.steps[i] + "…"; return; }
+      clearInterval(iv);
+      thinking.querySelector(".mb").innerHTML = `<div class="mh"><b>Agent</b><time>${hm(now())}</time></div>${work(a.steps, a.secs)}${a.html()}`;
+      if (a.wire) a.wire(thinking);
+      busy = false;
+      if (key) { const s = document.querySelector(`.sugg[data-q="${key}"]`); if (s) s.disabled = true; }
+      scrollEnd();
+    }, 650);
+  }
+
+  document.querySelectorAll(".sugg").forEach(b => b.addEventListener("click", () => ask(b.dataset.q)));
+  const input = document.getElementById("input");
+  function submit() {
+    const v = input.value.trim(); if (!v) return;
+    const t = v.toLowerCase();
+    const key = /risk/.test(t) ? "risk" : /(hold|pause).*(jakarta|jkt|indonesia)/.test(t) ? "hold" : /customs|2033|broker/.test(t) ? "customs" : /lunch|while i was|what did you do/.test(t) ? "lunch" : null;
+    input.value = "";
+    ask(key, v);
+  }
+  document.getElementById("form").addEventListener("submit", e => { e.preventDefault(); submit(); });
+  input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } });
+  const scopes = ["Scope: all runs", "Scope: SHP-2041", "Scope: Jakarta lane"];
+  let si = 0;
+  document.getElementById("scope").onclick = e => { si = (si + 1) % scopes.length; e.target.textContent = scopes[si]; };
+
+  setInterval(() => {
+    const el = document.getElementById("proLeft");
+    if (el && proDeadline) el.textContent = left(proDeadline - now());
+  }, 1000);
+  const el0 = document.getElementById("proLeft"); if (el0) el0.textContent = left(proDeadline - now());
+})();
+</script>
+</body>
+</html>

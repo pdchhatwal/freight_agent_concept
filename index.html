@@ -1,0 +1,254 @@
+<title>Freight Agent Console</title>
+<meta name="description" content="A review of the SHP-2041 run screen and four agentic UI concepts for a freight-booking agent.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="shared.css?v=3">
+<style>
+  .page { max-width: 1080px; margin: 0 auto; padding: 40px 16px 80px; display: grid; gap: 56px; }
+  .hero { display: grid; gap: 14px; max-width: 760px; }
+  .hero h1 { font-size: clamp(28px, 4.4vw, 42px); line-height: 1.08; font-weight: 600; letter-spacing: -.02em; }
+  .hero p { font-size: 17px; color: var(--ink-2); max-width: 64ch; }
+  section { display: grid; gap: 18px; }
+  section > header { display: grid; gap: 6px; }
+  section h2 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+  section > header p { color: var(--ink-2); max-width: 66ch; }
+
+  /* Keep list */
+  .keep { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .keep div { padding: 14px 16px; border-radius: var(--r); background: var(--ok-soft); display: grid; gap: 4px; }
+  .keep b { font-weight: 600; color: var(--ok); }
+  .keep span { color: var(--ink-2); font-size: 13px; }
+
+  /* Findings */
+  .findings { display: grid; gap: 10px; }
+  .finding { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 16px; padding: 18px; }
+  .finding .sev { padding-top: 2px; }
+  .finding h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .finding p { color: var(--ink-2); max-width: 72ch; }
+  .finding p + p { margin-top: 8px; }
+  .finding .fix { margin-top: 10px; display: flex; gap: 8px; align-items: baseline; color: var(--ink); font-size: 13.5px; }
+  .finding .fix .label { flex: none; color: var(--ok); }
+  .finding q { font-family: var(--f-mono); font-size: 12.5px; background: var(--sunken); padding: 1px 5px; border-radius: 4px; quotes: none; color: var(--ink); }
+  .finding.top { border-color: var(--crit); box-shadow: inset 3px 0 0 var(--crit); }
+
+  /* The inconsistency trace */
+  .trace { margin-top: 12px; display: grid; gap: 0; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; font-size: 13px; }
+  .trace div { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line); }
+  .trace div:first-child { border-top: 0; }
+  .trace .where { color: var(--ink-3); font-family: var(--f-cond); font-weight: 500; }
+  .trace mark { background: var(--crit-soft); color: var(--crit); padding: 0 3px; border-radius: 3px; }
+
+  /* Principles */
+  .principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+  .principles div { background: var(--surface); padding: 18px; display: grid; gap: 6px; align-content: start; }
+  .principles b { font-size: 15px; font-weight: 600; }
+  .principles span { color: var(--ink-2); font-size: 13.5px; }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 28px; padding: 16px 18px; }
+  .legend > div { display: grid; gap: 4px; }
+  .legend .who { font-size: 12px; }
+  .legend span.d { color: var(--ink-2); font-size: 13px; }
+
+  /* Concept cards */
+  .concepts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .concept { display: grid; grid-template-rows: auto auto 1fr auto; gap: 10px; padding: 18px; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
+  .concept:hover { border-color: var(--agent); transform: translateY(-2px); }
+  .concept .n { font: 500 12px var(--f-mono); color: var(--agent); }
+  .concept h3 { font-size: 18px; font-weight: 600; }
+  .concept p { color: var(--ink-2); font-size: 13.5px; }
+  .concept ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 12.5px; color: var(--ink-2); border-top: 1px solid var(--line); padding-top: 10px; }
+  .concept li::before { content: "→ "; color: var(--ink-3); }
+  .concept .fixes { font-size: 12px; color: var(--ink-3); }
+
+  @media (max-width: 640px) {
+    .page { padding-top: 24px; gap: 40px; }
+    .finding { grid-template-columns: 1fr; gap: 8px; }
+    .trace div { grid-template-columns: 1fr; gap: 2px; }
+  }
+</style>
+
+<nav class="cnav">
+  <a class="cnav-brand" href="index.html">Freight agent · concepts</a>
+  <div class="cnav-links">
+    <a href="index.html" aria-current="page">Review</a>
+    <a href="inbox.html">1 · Attention inbox</a>
+    <a href="run.html">2 · Run trajectory</a>
+    <a href="delegation.html">3 · Delegation</a>
+    <a href="thread.html">4 · Ops thread</a>
+  </div>
+</nav>
+
+<main class="page">
+  <div class="hero">
+    <span class="label">Design review · SHP-2041 run screen</span>
+    <h1>Your screen shows what the agent did. An agentic UI also has to show why it did it, what it does next, and where you come in.</h1>
+    <p>The bones are good: a stated goal, a plan with tools per step, company rules beside the run, and an evidence log. Right now it reads like a workflow dashboard with a chat box attached. The changes below move it toward a place where one person can supervise many agents.</p>
+  </div>
+
+  <section>
+    <header><h2>Keep these</h2></header>
+    <div class="keep">
+      <div><b>The goal in plain words</b><span>"Book and forward SHP-2041 to vendor, notify customer" is the right anchor for every run.</span></div>
+      <div><b>A tool on every step</b><span>"rate APIs", "vendor API", "tracking MCP" tell people what the agent can touch.</span></div>
+      <div><b>Company rules beside the run</b><span>Seeing policy next to the action is how people learn to trust it.</span></div>
+      <div><b>Eligibility is visible</b><span>"Auto-book eligible" is the start of a real autonomy contract.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <header>
+      <h2>What's holding it back</h2>
+      <p>Sorted by how much each one costs you in operator trust. The first one is a data bug, and it is the most important.</p>
+    </header>
+    <div class="findings">
+
+      <article class="card finding top">
+        <div class="sev"><span class="pill crit">Critical</span></div>
+        <div>
+          <h3>The carrier decision doesn't add up on screen</h3>
+          <p>Follow the carrier through the page and it changes three times. FastFreight's own price never appears, so nobody can check the choice.</p>
+          <div class="trace">
+            <div><span class="where">Header</span><span>$1,240 · <mark>FastFreight</mark></span></div>
+            <div><span class="where">Step 2</span><span>FedEx $1,240 · DHL $1,380 · <mark>no FastFreight quote</mark></span></div>
+            <div><span class="where">Evidence 09:14</span><span>"Selected <mark>FedEx</mark> $1,240 via carrier skill"</span></div>
+            <div><span class="where">Step 3</span><span>Forward to <mark>FastFreight</mark></span></div>
+            <div><span class="where">Brain rule</span><span>"prefer FastFreight on SG→MY" when delta &lt;5%, probably the real reason, but nothing links it to step 3</span></div>
+          </div>
+          <p class="fix"><span class="label">Fix</span><span>Give every decision a receipt: the options considered, the rule that fired, the arithmetic, and what would have happened without the rule. See concept 2.</span></p>
+        </div>
+      </article>
+
+      <article class="card finding">
+        <div class="sev"><span class="pill attn">High</span></div>
+        <div>
+          <h3>It's a run viewer, not a place to supervise</h3>
+          <p>All five runs get the same weight in the list. The one that is actually blocked on a person, <q>SHP-2037 Needs gate</q>, sits second and looks like the others. With 50 runs a day, the operator's real question is "what needs me, and by when?"</p>
+          <p class="fix"><span class="label">Fix</span><span>Make the home screen a queue of decisions ranked by deadline, with the agent's recommendation and a one-key answer on each. Show everything else as a fleet at a glance. See concept 1.</span></p>
+        </div>
+      </article>
+
+      <article class="card finding">
+        <div class="sev"><span class="pill attn">High</span></div>
+        <div>
+          <h3>You can't see what happens next</h3>
+          <p>Steps 4 and 5 are only labels. What will the customer email say, and when will it go out? What happens if FastFreight doesn't accept within the 15-minute SLA? That SLA only shows up inside a log line.</p>
+          <p class="fix"><span class="label">Fix</span><span>Show future steps with predicted times, drafts you can read now, live timers, and the fallback the agent will take on its own. See concept 2.</span></p>
+        </div>
+      </article>
+
+      <article class="card finding">
+        <div class="sev"><span class="pill">Medium</span></div>
+        <div>
+          <h3>Four controls for one mode, and the mode doesn't say what you may do</h3>
+          <p>The <q>In flight</q> badge, the <q>Switch to preview</q> link, the In flight / Preview toggle and the <q>In flight — surgical overrides only</q> banner all describe the same state. "Surgical overrides" doesn't say which overrides are allowed.</p>
+          <p class="fix"><span class="label">Fix</span><span>Show one status. Then mark each step with what you can do there: edit it, pause before it, swap the carrier, or nothing because it already happened.</span></p>
+        </div>
+      </article>
+
+      <article class="card finding">
+        <div class="sev"><span class="pill">Medium</span></div>
+        <div>
+          <h3>Override takes you away from the context</h3>
+          <p><q>override ↗</q> opens somewhere else at the moment you most need the quotes, the rule and the clock in view. You also can't see what an override will change before you make it.</p>
+          <p class="fix"><span class="label">Fix</span><span>Intervene in place. Before anything runs, show a preview of what the override changes, for example "Cancels FastFreight request, re-runs step 3 with FedEx, email unchanged".</span></p>
+        </div>
+      </article>
+
+      <article class="card finding">
+        <div class="sev"><span class="pill">Medium</span></div>
+        <div>
+          <h3>The company brain is a static list</h3>
+          <p>It shows three rules but not which ones fired in this run. It never learns from what people correct. If Ravi swaps FedEx for FastFreight every week, the brain should notice and propose a rule.</p>
+          <p class="fix"><span class="label">Fix</span><span>Link rules and decisions both ways. Turn repeated human corrections into proposed rules, backtested on past runs before anyone accepts them. See concept 3.</span></p>
+        </div>
+      </article>
+
+      <article class="card finding">
+        <div class="sev"><span class="pill">Medium</span></div>
+        <div>
+          <h3>Evidence lives in a separate log</h3>
+          <p>The same facts appear twice, once in the plan and once in the evidence panel, worded differently. That is how the FedEx/FastFreight mismatch slipped in.</p>
+          <p class="fix"><span class="label">Fix</span><span>Attach evidence to the step it proves. Keep the full log one click away for audits.</span></p>
+        </div>
+      </article>
+
+      <article class="card finding">
+        <div class="sev"><span class="pill">Low</span></div>
+        <div>
+          <h3>The chat box has no scope and no preview</h3>
+          <p><q>Ask about this run, or give the agent an instruction…</q> doesn't say whether an instruction applies to this step, this run or every SG→MY run, or what it will change.</p>
+          <p class="fix"><span class="label">Fix</span><span>Let instructions carry a scope. Have the agent repeat back its understanding as a change preview. Let answers come back as UI, such as a comparison table or a list of affected runs, instead of paragraphs. See concept 4.</span></p>
+        </div>
+      </article>
+
+      <article class="card finding">
+        <div class="sev"><span class="pill">Low</span></div>
+        <div>
+          <h3>Small things</h3>
+          <p>The filter chips (▷ ⚠ ✓) have no labels or counts. "Gate to Ravi" names a person but doesn't say whether Ravi is available or who covers. "Auto-book eligible" is the only sign of autonomy, and it can't be adjusted.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <header>
+      <h2>Six principles the concepts follow</h2>
+    </header>
+    <div class="principles">
+      <div><b>Attention over activity</b><span>Lead with what needs a human and the deadline for it. The agent's busywork is summary, not headline.</span></div>
+      <div><b>Every decision has a receipt</b><span>Options considered, rule applied, arithmetic, confidence, and what changes if you reverse it.</span></div>
+      <div><b>Show the future</b><span>Predicted steps, drafts, timers and fallbacks are visible before they happen, not after.</span></div>
+      <div><b>Steer without stopping</b><span>Breakpoints, pinned instructions and undo windows let you shape a run while it keeps moving.</span></div>
+      <div><b>Autonomy is earned and adjustable</b><span>Each action type has a level and a track record. The agent asks to be promoted with evidence.</span></div>
+      <div><b>Corrections become knowledge</b><span>Repeated overrides turn into proposed rules, backtested on real runs, with a versioned history.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <header>
+      <h2>One colour rule across every concept</h2>
+      <p>On a screen where a machine and people both act, the first question is always "who did this?" Each concept answers it with the same three marks.</p>
+    </header>
+    <div class="card legend">
+      <div><span class="who a">Agent</span><span class="d">Did, decided or drafted it</span></div>
+      <div><span class="who b">Company brain</span><span class="d">A written rule shaped it</span></div>
+      <div><span class="who h">Person</span><span class="d">Someone on your team set or changed it</span></div>
+    </div>
+  </section>
+
+  <section>
+    <header>
+      <h2>Four concepts</h2>
+      <p>Each one is a working prototype with sample data. Buttons, timers and keyboard shortcuts behave the way they would in the product.</p>
+    </header>
+    <div class="concepts">
+      <a class="card concept" href="inbox.html">
+        <span class="n">01</span>
+        <h3>Attention inbox</h3>
+        <p>The home screen. Decisions waiting on people, ranked by deadline, with a fleet view of everything the agent handled alone.</p>
+        <ul><li>Answer a card with <span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span></li><li>Watch the deadlines count down</li><li>Spot-check the agent's solo work</li></ul>
+      </a>
+      <a class="card concept" href="run.html">
+        <span class="n">02</span>
+        <h3>Run trajectory</h3>
+        <p>SHP-2041 rebuilt. Past, live and planned steps on one line, a decision receipt for each, and breakpoints like a debugger.</p>
+        <ul><li>Open the step 2 receipt</li><li>Toggle the breakpoint before the email</li><li>Type "use DHL if no accept in 5 min"</li></ul>
+      </a>
+      <a class="card concept" href="delegation.html">
+        <span class="n">03</span>
+        <h3>Delegation</h3>
+        <p>What the agent may do without asking, the track record behind each level, and rules learned from your corrections.</p>
+        <ul><li>Promote an action and see the blast radius</li><li>Backtest a proposed rule</li><li>Read the brain's version history</li></ul>
+      </a>
+      <a class="card concept" href="thread.html">
+        <span class="n">04</span>
+        <h3>Ops thread</h3>
+        <p>A conversation where answers come back as working UI: comparison tables, affected-run lists and drafts, all previewed before they run.</p>
+        <ul><li>Ask "what's at risk today?"</li><li>Hold Jakarta shipments as a dry run</li><li>Answer the agent's own question</li></ul>
+      </a>
+    </div>
+  </section>
+</main>

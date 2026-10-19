@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SHP-2041 Trajectory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="shared.css?v=3">
+<style>
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 20px 24px 64px; display: grid; gap: 18px; }
+
+  /* Run header */
+  .rhead { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-start; justify-content: space-between; }
+  .rhead .back { font-size: 13px; color: var(--ink-2); text-decoration: none; }
+  .rhead .back:hover { color: var(--ink); }
+  .rhead h1 { font: 600 24px/1.2 var(--f-mono); letter-spacing: -.02em; margin-top: 4px; }
+  .rhead .meta { color: var(--ink-2); margin-top: 2px; }
+  .rhead .meta b { color: var(--ink); font-weight: 500; }
+  .rhead-r { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  #status { min-height: 30px; padding: 0 12px; font-size: 13px; }
+
+  .goal { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px 14px; align-items: baseline; padding: 12px 16px; }
+  .goal p { font-weight: 500; }
+  .goal .autonomy { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 14px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); }
+  .goal .autonomy a { color: var(--agent-ink); }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 18px; align-items: start; }
+
+  /* Trajectory */
+  .traj-card { padding: 6px 0 0; }
+  .traj-h { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: baseline; padding: 12px 20px 6px; }
+  .traj-h h2 { font-size: 15px; font-weight: 600; }
+  .traj-h .hint { font-size: 12px; color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+  .traj-h .hint i { width: 10px; height: 10px; border-radius: 50%; background: var(--crit); display: inline-block; }
+  ol.traj { list-style: none; margin: 0; padding: 6px 0 10px; }
+  .step { display: grid; grid-template-columns: 30px 30px minmax(0, 1fr); column-gap: 10px; position: relative; padding: 0 20px 0 6px; }
+  .step::before { content: ""; position: absolute; left: 60px; top: 30px; bottom: -4px; width: 2px; background: var(--line-2); }
+  .step:last-child::before { display: none; }
+  .step.done::before { background: var(--ink-3); }
+  .step.plan::before, .step.paused::before { background: repeating-linear-gradient(to bottom, var(--line-2) 0 4px, transparent 4px 8px); }
+  .bp { width: 30px; height: 30px; display: grid; place-items: center; background: none; border: 0; padding: 0; cursor: pointer; margin-top: 10px; }
+  .bp i { width: 11px; height: 11px; border-radius: 50%; border: 1.5px dashed transparent; transition: .15s; }
+  .step:hover .bp i, .bp:focus-visible i { border-color: var(--crit); }
+  .bp[aria-pressed="true"] i { background: var(--crit); border: 1.5px solid var(--crit); box-shadow: 0 0 0 3px var(--crit-soft); }
+  .bp[disabled] { cursor: default; }
+  .bp[disabled] i { border-color: transparent !important; }
+  .node { width: 30px; height: 30px; margin-top: 10px; border-radius: 50%; display: grid; place-items: center; font: 600 12px var(--f-mono); background: var(--surface); border: 1.5px solid var(--line-2); color: var(--ink-3); position: relative; z-index: 1; }
+  .step.done .node { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+  .step.live .node { background: var(--agent); border-color: var(--agent); color: var(--on-agent); box-shadow: 0 0 0 5px var(--agent-soft); }
+  .step.paused .node { background: var(--attn); border-color: var(--attn); color: var(--surface); box-shadow: 0 0 0 5px var(--attn-soft); }
+  .sbody { padding: 10px 12px 14px; margin: 4px 0; border-radius: var(--r); cursor: pointer; display: grid; gap: 8px; border: 1px solid transparent; transition: background .12s, border-color .12s; min-width: 0; }
+  .sbody:hover { background: var(--sunken); }
+  .step.sel .sbody { background: var(--sunken); border-color: var(--line-2); }
+  .s-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+  .s-title { font-weight: 600; font-size: 15px; }
+  .step.plan .s-title { color: var(--ink-2); }
+  .s-time { font: 500 12px var(--f-mono); color: var(--ink-3); }
+  .s-tool { margin-left: auto; font: 500 11.5px var(--f-mono); color: var(--ink-3); }
+  .s-sum { color: var(--ink-2); }
+  .s-sum b { color: var(--ink); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 12px; padding: 3px 8px; border-radius: 5px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
+  .chip small { color: var(--ink-3); font-size: 11px; margin-left: 4px; }
+  .s-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  .wait { display: flex; gap: 14px; align-items: center; padding: 10px 12px; border-radius: var(--r-sm); background: var(--agent-soft); }
+  .ring { width: 44px; height: 44px; flex: none; transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 4; }
+  .ring .trk { stroke: color-mix(in srgb, var(--agent) 18%, transparent); }
+  .ring .prog { stroke: var(--agent); stroke-linecap: round; stroke-dasharray: 100.53; transition: stroke-dashoffset 1s linear; }
+  .wait-t { display: grid; gap: 1px; font-size: 13px; color: var(--ink-2); }
+  .wait-t b { font: 600 18px var(--f-mono); color: var(--agent-ink); }
+  .branches { display: grid; gap: 0; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--surface); }
+  .br { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; padding: 8px 12px; font-size: 13px; border-top: 1px dashed var(--line-2); }
+  .br:first-child { border-top: 0; }
+  .br-if { font: 600 11.5px/1.5 var(--f-cond); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+  .br.fb .br-if { color: var(--attn); }
+  .br.changed { background: var(--attn-soft); }
+
+  .note { display: grid; gap: 2px; padding: 8px 12px; border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--ink); font-size: 13px; }
+  .note .who { font-size: 10px; }
+  details.draft { border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+  details.draft summary { padding: 8px 12px; cursor: pointer; font-size: 13px; color: var(--ink-2); list-style: none; display: flex; gap: 8px; align-items: center; }
+  details.draft summary::-webkit-details-marker { display: none; }
+  details.draft summary::before { content: "▸"; color: var(--ink-3); transition: transform .15s; }
+  details.draft[open] summary::before { transform: rotate(90deg); }
+  .mail { padding: 4px 14px 14px; font-size: 13px; display: grid; gap: 8px; }
+  .mail .hdr { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 2px 8px; font-size: 12.5px; color: var(--ink-2); padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .mail .hdr b { color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
+  .mail p { max-width: 62ch; }
+  .slot { background: var(--agent-soft); color: var(--agent-ink); border-radius: 3px; padding: 0 3px; font-family: var(--f-mono); font-size: 12px; }
+  .paused-box { padding: 10px 12px; border-radius: var(--r-sm); background: var(--attn-soft); color: var(--ink); display: grid; gap: 8px; font-size: 13px; }
+  .demo { font-size: 11.5px; color: var(--ink-3); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-top: 4px; border-top: 1px dashed var(--line-2); }
+  .demo button { background: none; border: 0; padding: 0; color: var(--agent-ink); text-decoration: underline; cursor: pointer; font-size: 11.5px; }
+
+  /* Steering composer */
+  .steer { margin: 0 20px 20px; padding: 12px; border-radius: var(--r); background: var(--sunken); border: 1px solid var(--line); display: grid; gap: 10px; }
+  .steer-row { display: flex; gap: 8px; align-items: flex-end; }
+  .steer textarea { flex: 1; min-width: 0; resize: none; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); padding: 8px 10px; min-height: 40px; line-height: 1.4; }
+  .steer select { height: 32px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); padding: 0 8px; font-size: 12.5px; }
+  .steer-foot { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .sugg { font-size: 12px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); cursor: pointer; color: var(--ink-2); }
+  .sugg:hover { color: var(--ink); border-color: var(--ink-3); }
+  .preview { border: 1px solid var(--agent); border-radius: var(--r-sm); background: var(--surface); padding: 12px; display: grid; gap: 8px; animation: settle .25s ease-out; }
+  .preview ul { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 13px; display: grid; gap: 2px; }
+  .preview .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  @keyframes settle { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+  /* Receipt */
+  .receipt { position: sticky; top: calc(56px + env(safe-area-inset-top, 0px)); padding: 18px; display: grid; gap: 16px; max-height: calc(100vh - 72px); overflow: auto; }
+  .receipt h2 { font-size: 17px; font-weight: 600; line-height: 1.3; }
+  .rsec { display: grid; gap: 8px; }
+  .qt { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .qt th { text-align: left; font: 600 10.5px var(--f-cond); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 0 6px 6px; border-bottom: 1px solid var(--line); }
+  .qt td { padding: 8px 6px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .qt td.r, .qt th.r { text-align: right; }
+  .qt tr.pick td { background: var(--agent-soft); }
+  .qt tr.pick td:first-child { box-shadow: inset 3px 0 0 var(--agent); font-weight: 600; }
+  .tag-mini { font: 600 10px var(--f-cond); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); margin-left: 6px; }
+  .tqt { overflow-x: auto; }
+  .checks { display: grid; gap: 8px; }
+  .rule { border-radius: var(--r-sm); background: var(--brain-soft); padding: 10px 12px; display: grid; gap: 6px; }
+  .rule q { quotes: none; font-style: italic; color: var(--ink); }
+  .rule ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 13px; }
+  .rule li { display: flex; gap: 8px; }
+  .rule li::before { content: "✓"; color: var(--ok); font-weight: 700; }
+  .rule li.x::before { content: "–"; color: var(--ink-3); }
+  .cf { border: 1px dashed var(--line-2); border-radius: var(--r-sm); padding: 10px 12px; font-size: 13px; color: var(--ink-2); }
+  .cf b { color: var(--ink); }
+  .kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 10px; font-size: 13px; }
+  .kv dt { color: var(--ink-3); }
+  .kv dd { margin: 0; }
+  .src { font: 400 11.5px/1.6 var(--f-mono); color: var(--ink-3); }
+  .r-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .flash { animation: flash 1.2s ease-out; }
+  @keyframes flash { 0% { box-shadow: 0 0 0 3px var(--agent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+  @media (max-width: 1080px) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .receipt { position: static; max-height: none; }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding: 14px 16px 40px; }
+    .goal { grid-template-columns: minmax(0, 1fr); }
+    .step { grid-template-columns: 22px 26px minmax(0, 1fr); column-gap: 6px; padding: 0 10px 0 2px; }
+    .step::before { left: 42px; top: 26px; }
+    .bp { width: 22px; height: 26px; }
+    .bp i { border-color: var(--line-2); }
+    .node { width: 26px; height: 26px; }
+    .br { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .steer { margin: 0 10px 12px; }
+    .steer-row { flex-wrap: wrap; }
+    .steer textarea { flex-basis: 100%; }
+    .s-tool { margin-left: 0; }
+    .traj-h { padding: 12px 14px 6px; }
+  }
+</style>
+</head>
+<body>
+<nav class="cnav">
+  <a class="cnav-brand" href="index.html">Freight agent · concepts</a>
+  <div class="cnav-links">
+    <a href="index.html">Review</a>
+    <a href="inbox.html">1 · Attention inbox</a>
+    <a href="run.html" aria-current="page">2 · Run trajectory</a>
+    <a href="delegation.html">3 · Delegation</a>
+    <a href="thread.html">4 · Ops thread</a>
+  </div>
+</nav>
+
+<div class="wrap">
+  <header class="rhead">
+    <div>
+      <a class="back" href="inbox.html">← Needs you</a>
+      <h1>SHP-2041</h1>
+      <p class="meta"><b>Singapore → Kuala Lumpur</b> · 340 kg · 4 pallets · Lumen Audio · <b id="hdrCarrier">FastFreight $1,262</b></p>
+    </div>
+    <div class="rhead-r">
+      <span class="pill agent" id="status"><span class="dot live"></span><span id="statusTxt">…</span></span>
+      <button class="btn" id="pauseBtn">Pause run</button>
+    </div>
+  </header>
+
+  <section class="card goal">
+    <span class="label">Goal</span>
+    <p>Book a carrier, confirm to the customer, watch it to delivery.</p>
+    <span class="label">Done when</span>
+    <p>Customer has a booking ref and ETA, and goods are delivered.</p>
+    <div class="autonomy">
+      <span class="who a">Agent may</span>
+      <span>book up to $2,000 without asking</span>
+      <span>· email the customer with a 30 s hold</span>
+      <span>· fall back to another carrier inside the limit</span>
+      <a href="delegation.html">Change what it may do</a>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card traj-card" aria-label="Trajectory">
+      <div class="traj-h">
+        <h2>Trajectory</h2>
+        <span class="hint"><i></i>Use the dot left of a planned step to pause before it</span>
+      </div>
+      <ol class="traj" id="traj"></ol>
+
+      <form class="steer" id="steer" autocomplete="off">
+        <div class="steer-row">
+          <textarea id="steerIn" rows="1" placeholder="Tell the agent what to change, or ask why it did something"></textarea>
+          <select id="scope" aria-label="Applies to">
+            <option value="run">This run</option>
+            <option value="lane">All SG → MY runs</option>
+          </select>
+          <button class="btn btn-primary" type="submit">Preview</button>
+        </div>
+        <div id="previewSlot"></div>
+        <div class="steer-foot">
+          <span class="faint" style="font-size:12px">Try:</span>
+          <button type="button" class="sugg">Hold the email until I've read it</button>
+          <button type="button" class="sugg">Use DHL if FastFreight hasn't accepted in 5 min</button>
+          <button type="button" class="sugg">Why not FedEx?</button>
+        </div>
+      </form>
+    </section>
+
+    <aside class="card receipt" id="receipt" aria-live="polite"></aside>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden role="status" aria-live="polite">
+  <span id="toastMsg"></span>
+  <button class="btn btn-sm" id="toastBtn">Undo</button>
+  <span class="bar"><i id="toastBar"></i></span>
+</div>
+
+<script>
+(() => {
+  const t0 = Date.now();
+  const START = 9 * 3600 + 16 * 60 + 20;
+  let pausedMs = 0, pauseStart = null;
+  const now = () => START + Math.floor(((pauseStart ?? Date.now()) - t0 - pausedMs) / 1000);
+  const at = (h, m, s = 0) => h * 3600 + m * 60 + s;
+  const hms = s => [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, "0")).join(":");
+  const hm = s => hms(s).slice(0, 5);
+  const left = s => s <= 0 ? "0:00" : Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  const usd = n => "$" + n.toLocaleString("en-US");
+
+  const QUOTES = { FastFreight: 1262, FedEx: 1240, DHL: 1380 };
+
+  const S = {
+    carrier: "FastFreight", chosenBy: "rule",
+    sentAt: at(9, 15, 4), deadline: at(9, 30, 4),
+    fallback: "FedEx", fallbackChanged: false,
+    phase: "waiting",          // waiting | sending | paused | sent
+    acceptedAt: null, ref: null, viaFallback: false,
+    sendAt: null, sentAt4: null,
+    bp: { 4: false, 5: false },
+    notes: { 4: [{ by: "Priya", t: "09:12", text: "cc Ravi on this one, he owns the Lumen account." }] },
+    runPaused: false,
+    sel: 2
+  };
+
+  /* ---------------- Steps ---------------- */
+  function steps() {
+    const n = now();
+    const out = [];
+
+    out.push({ n: 1, st: "done", title: "Read the booking request", time: "09:14:02 · 3 s", tool: "email parser",
+      body: `<p class="s-sum">Booking email from Lumen Audio, parsed into a shipment.</p>
+        <div class="chips">
+          <span class="chip">340 kg<small>invoice</small></span>
+          <span class="chip">4 pallets<small>email</small></span>
+          <span class="chip">General cargo, not DG<small>product sheet</small></span>
+          <span class="chip">Ready 15:00 today<small>email</small></span>
+          <span class="chip">Value S$18,400<small>invoice</small></span>
+        </div>` });
+
+    const s2sum = S.chosenBy === "rule"
+      ? `Chose <b>FastFreight ${usd(1262)}</b> over FedEx ${usd(1240)}, 1.8% more, because of the carrier selection rule.`
+      : `<span class="who h">You</span> switched to <b>${S.carrier} ${usd(QUOTES[S.carrier])}</b>. The agent had picked FastFreight by rule.`;
+    out.push({ n: 2, st: "done", title: "Compare carriers", time: "09:14:10 · 6 s", tool: "rate APIs × 3",
+      body: `<p class="s-sum">${s2sum}</p>
+        <div class="chips"><span class="pill brain">▲ Carrier selection rule</span><span class="pill brain">▲ Auto-book under $2,000</span></div>
+        <div class="s-acts"><button class="btn btn-sm" data-receipt="2">Open receipt</button></div>` });
+
+    if (S.phase === "waiting") {
+      const span = S.deadline - S.sentAt;
+      out.push({ n: 3, st: "live", title: `Book with ${S.carrier}`, time: `sent ${hms(S.sentAt)}`, tool: "vendor API",
+        body: `<div class="wait">
+            <svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="trk" cx="20" cy="20" r="16"></circle><circle class="prog" cx="20" cy="20" r="16" id="ring" data-span="${span}"></circle></svg>
+            <div class="wait-t"><span><b id="waitLeft">…</b> left for ${S.carrier} to accept</span><span class="faint">${S.carrier === "FastFreight" ? "FastFreight usually accepts in about 4 min on this lane." : "Carrier API confirms within a few minutes."}</span></div>
+          </div>
+          <div class="branches">
+            <div class="br"><span class="br-if">If accepted</span><span>Go straight to step 4 and confirm to the customer.</span></div>
+            <div class="br fb ${S.fallbackChanged ? "changed" : ""}"><span class="br-if">If not by ${hm(S.deadline)}</span><span>Book <b>${S.fallback} at ${usd(QUOTES[S.fallback])}</b> on its own. ${QUOTES[S.fallback] < 2000 ? "That's inside the $2,000 limit, so it won't ask you." : "Over the limit, so it will ask you first."}${S.fallbackChanged ? ` <span class="who h">changed by you</span>` : ""}</span></div>
+          </div>
+          <div class="s-acts">
+            <button class="btn btn-sm" data-act="fallbackNow">Book ${S.fallback} now</button>
+            <button class="btn btn-sm" data-act="extend">Wait 10 more min</button>
+            <button class="btn btn-sm btn-ghost" data-receipt="3">Receipt</button>
+          </div>
+          <div class="demo"><span>Prototype:</span><button type="button" data-act="accept">Simulate ${S.carrier} accepting</button></div>` });
+    } else {
+      out.push({ n: 3, st: "done", title: `Book with ${S.carrier}`, time: `${hms(S.acceptedAt)}`, tool: "vendor API",
+        body: `<p class="s-sum">${S.viaFallback ? `No accept in time, so the agent fell back to <b>${S.carrier} at ${usd(QUOTES[S.carrier])}</b>.` : `<b>${S.carrier} accepted</b> after ${Math.max(1, Math.round((S.acceptedAt - S.sentAt) / 60))} min.`} Booking ref <span class="mono"><b>${S.ref}</b></span>.</p>
+          <div class="s-acts"><button class="btn btn-sm btn-ghost" data-receipt="3">Receipt</button></div>` });
+    }
+
+    // Step 4
+    const notes = (S.notes[4] || []).map(x => `<div class="note"><span class="who h">${x.by} · ${x.t}</span><span>${x.text}</span></div>`).join("");
+    const draft = `<details class="draft" ${S.phase === "paused" ? "open" : ""}><summary>Draft email, written ${S.phase === "waiting" ? "and waiting" : "ready"}</summary>${mailHtml()}</details>`;
+    if (S.phase === "waiting") {
+      out.push({ n: 4, st: "plan", title: "Confirm to the customer", time: "predicted ~09:21", tool: "email",
+        body: `<p class="s-sum">Sends as soon as a carrier accepts${S.bp[4] ? ", <b>but you've asked it to stop here first</b>" : ", with a 30 s hold so you can stop it"}.</p>${notes}${draft}` });
+    } else if (S.phase === "paused") {
+      out.push({ n: 4, st: "paused", title: "Confirm to the customer", time: "paused", tool: "email",
+        body: `<div class="paused-box"><span><b>Paused here, as you asked.</b> The draft below has the booking ref filled in. Nothing has been sent.</span>
+          <div class="s-acts"><button class="btn btn-agent btn-sm" data-act="send">Send it</button><button class="btn btn-sm" data-act="sendLater">Send at 10:00</button></div></div>${notes}${draft}` });
+    } else if (S.phase === "sending") {
+      out.push({ n: 4, st: "live", title: "Confirm to the customer", time: "sending", tool: "email",
+        body: `<div class="wait"><div class="wait-t"><span>Sending in <b id="sendLeft">…</b></span><span class="faint">To ops@lumenaudio.sg, cc Ravi</span></div>
+          <div class="s-acts" style="margin-left:auto"><button class="btn btn-sm" data-act="hold">Hold</button><button class="btn btn-agent btn-sm" data-act="send">Send now</button></div></div>${notes}${draft}` });
+    } else {
+      out.push({ n: 4, st: "done", title: "Confirm to the customer", time: hms(S.sentAt4), tool: "email",
+        body: `<p class="s-sum">Sent to <b>ops@lumenaudio.sg</b>, cc Ravi, with ref ${S.ref} and ETA Wed 21 Oct.</p>${draft}` });
+    }
+
+    // Step 5
+    const s5st = S.phase === "sent" ? "live" : "plan";
+    out.push({ n: 5, st: s5st, title: "Watch transit until delivered", time: S.phase === "sent" ? `next check ${hm(S.sentAt4 + 7200)}` : "from pickup 15:00", tool: "tracking MCP",
+      body: `<p class="s-sum">Checks tracking every 2 hours. Tells you only if the ETA slips by more than 4 hours. Predicted delivery <b>Wed 21 Oct, 14:00 ± 3 h</b>.</p>` });
+
+    return out;
+  }
+
+  function mailHtml() {
+    const ref = S.ref ? `<b class="mono">${S.ref}</b>` : `<span class="slot">booking ref</span>`;
+    return `<div class="mail">
+      <div class="hdr"><span>To</span><b>ops@lumenaudio.sg</b><span>Cc</span><b>ravi@yourco.sg</b><span>Subject</span><b>Booking confirmed: SHP-2041 Singapore → Kuala Lumpur</b></div>
+      <p>Dear Lumen Audio team,</p>
+      <p>Your shipment of 4 pallets (340 kg) is booked with ${S.carrier}, reference ${ref}. Pickup is today from 15:00 at your Tuas warehouse, and the estimated delivery in Kuala Lumpur is Wednesday 21 October by 14:00.</p>
+      <p>We'll write again only if the ETA changes.</p>
+      <p>Kind regards,<br>Operations</p>
+    </div>`;
+  }
+
+  function renderSteps() {
+    const ol = document.getElementById("traj");
+    const openDraft = [...ol.querySelectorAll("details.draft")].some(d => d.open);
+    ol.innerHTML = "";
+    steps().forEach(s => {
+      const li = document.createElement("li");
+      li.className = `step ${s.st} ${S.sel === s.n ? "sel" : ""}`;
+      const canBp = s.st === "plan";
+      const pressed = !!S.bp[s.n];
+      li.innerHTML = `
+        <button class="bp" ${canBp ? "" : "disabled"} aria-pressed="${pressed}" aria-label="Pause before step ${s.n}" title="${canBp ? (pressed ? "Remove breakpoint" : "Pause before this step") : ""}"><i></i></button>
+        <span class="node">${s.st === "done" ? "✓" : s.st === "paused" ? "❚❚" : s.n}</span>
+        <div class="sbody" data-step="${s.n}">
+          <div class="s-head"><span class="s-title">${s.title}</span><span class="s-time">${s.time}</span><span class="s-tool">${s.tool}</span></div>
+          ${s.body}
+        </div>`;
+      li.querySelector(".bp").addEventListener("click", () => { if (!canBp) return; S.bp[s.n] = !pressed; toast(pressed ? `Breakpoint removed from step ${s.n}.` : `The agent will stop before step ${s.n} and wait for you.`); renderAll(); });
+      li.querySelector(".sbody").addEventListener("click", e => {
+        if (e.target.closest("button, a, summary, details")) return;
+        select(s.n);
+      });
+      ol.appendChild(li);
+    });
+    if (openDraft && S.phase !== "paused") { const d = ol.querySelector("details.draft"); if (d) d.open = true; }
+    ol.querySelectorAll("[data-receipt]").forEach(b => b.addEventListener("click", () => select(+b.dataset.receipt, true)));
+    ol.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => act(b.dataset.act)));
+  }
+
+  /* ---------------- Receipts ---------------- */
+  function receiptHtml(n) {
+    if (n === 1) return `
+      <span class="label">Receipt · step 1</span>
+      <h2>How the agent read the booking email</h2>
+      <dl class="kv">
+        <dt>Weight</dt><dd>340 kg <span class="faint">from invoice line “Gross 340.0 kg”</span></dd>
+        <dt>Pieces</dt><dd>4 pallets <span class="faint">from email body</span></dd>
+        <dt>Cargo</dt><dd>General, not dangerous goods. Product sheet says “mains powered, no batteries”.</dd>
+        <dt>Ready</dt><dd>Today 15:00, Tuas warehouse</dd>
+        <dt>Value</dt><dd>S$18,400 ≈ ${usd(13650)} declared</dd>
+      </dl>
+      <div class="cf">Nothing was guessed. Every field above came from a document, so this step didn't need you.</div>
+      <p class="src">email msg-8f21 · invoice INV-55120.pdf · product-sheet LA-MON8.pdf</p>`;
+
+    if (n === 2) {
+      const rows = [["FastFreight", 1262, "2 days", "98.6%", "rule"], ["FedEx", 1240, "2 days", "96.1%", "cheapest"], ["DHL", 1380, "1 day", "97.9%", "fastest"]];
+      return `
+      <span class="label">Receipt · step 2</span>
+      <h2>Which carrier for 340 kg of general cargo, Singapore → Kuala Lumpur?</h2>
+      <div class="rsec tqt">
+        <table class="qt">
+          <thead><tr><th>Carrier</th><th class="r">Quote</th><th>Transit</th><th class="r">On time, 90 d</th></tr></thead>
+          <tbody>${rows.map(r => `<tr class="${r[0] === S.carrier ? "pick" : ""}"><td>${r[0]}<span class="tag-mini">${r[4]}</span></td><td class="r mono">${usd(r[1])}</td><td>${r[2]}</td><td class="r mono">${r[3]}</td></tr>`).join("")}</tbody>
+        </table>
+      </div>
+      <div class="rsec">
+        <span class="label">Why the agent picked FastFreight</span>
+        <div class="checks">
+          <div class="rule"><span class="who b">Carrier selection rule</span><q>When the cost difference is under 5%, prefer FastFreight on SG → MY. Otherwise pick the lowest cost.</q>
+            <ul><li>Lane is SG → MY</li><li>Difference ${usd(22)} on ${usd(1240)} = <b class="mono">1.8%</b>, under 5%</li></ul></div>
+          <div class="rule"><span class="who b">Auto-book threshold</span><q>Auto-book if value is under $2k and not hazmat. Gate to Ravi above.</q>
+            <ul><li>${usd(1262)} is under ${usd(2000)}</li><li>Not hazmat, from step 1</li></ul></div>
+        </div>
+      </div>
+      <div class="cf">Without the carrier rule the agent would have booked <b>FedEx at ${usd(1240)}</b>, saving ${usd(22)}, with an on-time rate 2.5 points lower.</div>
+      <dl class="kv">
+        <dt>Confidence</dt><dd>High. Both rules matched cleanly.</dd>
+        <dt>Reversible</dt><dd>${S.phase === "waiting" ? "Yes, free, until the carrier accepts." : "Only by cancelling with the carrier."}</dd>
+      </dl>
+      <div id="switchSlot"></div>
+      <div class="r-acts">
+        ${S.phase === "waiting" ? `<button class="btn" data-ract="switchFedEx">Switch to FedEx…</button><button class="btn" data-ract="switchDHL">Switch to DHL…</button>` : ""}
+        <a class="btn btn-ghost" href="delegation.html#brain">Question this rule</a>
+      </div>
+      <p class="src">rate-api fastfreight 09:14:08 · fedex 09:14:08 · dhl 09:14:09 · brain v14</p>`;
+    }
+
+    if (n === 3) return `
+      <span class="label">Receipt · step 3</span>
+      <h2>Booking with ${S.carrier}, and what happens if they're slow</h2>
+      <div class="rule"><span class="who b">Vendor accept window</span><q>Vendors get 15 minutes to accept. Then fall back to the next carrier that passes policy.</q>
+        <ul><li>Request sent ${hms(S.sentAt)}</li><li>Fallback is ${S.fallback}, ${usd(QUOTES[S.fallback])}${S.fallbackChanged ? " (you changed this)" : ", next cheapest"}</li><li class="${QUOTES[S.fallback] < 2000 ? "" : "x"}">${QUOTES[S.fallback] < 2000 ? "Fallback is under $2,000, so no approval needed" : "Fallback is over $2,000 and will need approval"}</li></ul></div>
+      <dl class="kv">
+        <dt>Track record</dt><dd>FastFreight accepted 97% of SG → KL requests within 15 min this quarter. Median 4 min.</dd>
+        <dt>If it fails</dt><dd>Agent cancels the open request first, so you're never double-booked.</dd>
+        ${S.ref ? `<dt>Booking ref</dt><dd class="mono">${S.ref}</dd>` : ""}
+      </dl>
+      <p class="src">vendor-api fastfreight POST /bookings 09:15:04 · policy vendor-sla v3</p>`;
+
+    if (n === 4) return `
+      <span class="label">Receipt · step 4</span>
+      <h2>The customer email, before it's sent</h2>
+      <div class="card" style="overflow:hidden">${mailHtml()}</div>
+      <div class="checks">
+        <div class="rule"><span class="who b">Customer notify</span><q>Send a formal email with ETA and booking ref when step 4 completes.</q><ul><li>Formal tone</li><li>ETA included</li><li>${S.ref ? "Booking ref included" : "Booking ref fills in when the carrier accepts"}</li></ul></div>
+        <div class="note"><span class="who h">Priya · 09:12</span><span>cc Ravi on this one, he owns the Lumen account.</span></div>
+      </div>
+      <dl class="kv">
+        <dt>Sends</dt><dd>${S.bp[4] ? "Only after you say so. There's a breakpoint here." : "Automatically, 30 s after the carrier accepts, so you can hold it."}</dd>
+        <dt>Why no approval</dt><dd>“Email customer” is set to act with a hold window. <a href="delegation.html">Change it</a></dd>
+      </dl>`;
+
+    return `
+      <span class="label">Receipt · step 5</span>
+      <h2>How the agent will watch this shipment</h2>
+      <dl class="kv">
+        <dt>Checks</dt><dd>Carrier tracking every 2 h, plus border feeds at Johor</dd>
+        <dt>Tells you if</dt><dd>ETA slips more than 4 h, or the shipment sits still for more than 6 h</dd>
+        <dt>Tells customer</dt><dd>Only if the ETA changes by a day or more</dd>
+        <dt>ETA model</dt><dd>Wed 21 Oct 14:00 ± 3 h, from 212 past SG → KL runs with this carrier</dd>
+      </dl>
+      <div class="cf">Johor crossings have run about 3 h slow this week. That is already counted in the ETA.</div>`;
+  }
+
+  function renderReceipt(flash) {
+    const r = document.getElementById("receipt");
+    r.innerHTML = receiptHtml(S.sel);
+    r.querySelectorAll("[data-ract]").forEach(b => b.addEventListener("click", () => switchPreview(b.dataset.ract === "switchFedEx" ? "FedEx" : "DHL")));
+    if (flash) { r.classList.remove("flash"); void r.offsetWidth; r.classList.add("flash"); }
+  }
+
+  function switchPreview(to) {
+    const slot = document.getElementById("switchSlot");
+    const p = QUOTES[to], d = p - QUOTES[S.carrier];
+    slot.innerHTML = `<div class="preview">
+      <span class="who a">This will</span>
+      <ul>
+        <li>Cancel the open ${S.carrier} request. No fee before they accept.</li>
+        <li>Send the booking to ${to} at ${usd(p)} (${d >= 0 ? "+" : "−"}${usd(Math.abs(d))}).</li>
+        <li>Restart the 15 min accept window.</li>
+        <li>Keep the customer email the same, with ${to}'s reference.</li>
+        <li>Not change the carrier rule. If you do this often, the agent will suggest changing it.</li>
+      </ul>
+      <div class="acts"><button class="btn btn-primary" id="doSwitch">Switch to ${to}</button><button class="btn btn-ghost" id="noSwitch">Cancel</button></div>
+    </div>`;
+    document.getElementById("doSwitch").onclick = () => {
+      const prev = { carrier: S.carrier, chosenBy: S.chosenBy, sentAt: S.sentAt, deadline: S.deadline, fallback: S.fallback };
+      S.carrier = to; S.chosenBy = "you"; S.sentAt = now(); S.deadline = now() + 900;
+      if (S.fallback === to) S.fallback = to === "FedEx" ? "FastFreight" : "FedEx";
+      renderAll();
+      toast(`Switched to ${to}. Sent ${hms(S.sentAt)}.`, () => { Object.assign(S, prev); renderAll(); });
+    };
+    document.getElementById("noSwitch").onclick = () => { slot.innerHTML = ""; };
+  }
+
+  function select(n, flash) {
+    S.sel = n;
+    renderSteps();
+    renderReceipt(flash);
+    if (flash && window.matchMedia("(max-width: 1080px)").matches) document.getElementById("receipt").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /* ---------------- Actions ---------------- */
+  function accept(viaFallback) {
+    S.acceptedAt = now();
+    S.viaFallback = !!viaFallback;
+    S.ref = (S.carrier === "FastFreight" ? "FF-" : S.carrier === "FedEx" ? "FX-" : "DH-") + (88213 + Math.floor(Math.random() * 400));
+    if (S.bp[4]) { S.phase = "paused"; S.sel = 4; }
+    else { S.phase = "sending"; S.sendAt = now() + 30; }
+    renderAll();
+  }
+
+  function act(a) {
+    if (a === "accept") accept(false);
+    else if (a === "fallbackNow") { S.carrier = S.fallback; S.chosenBy = "you"; S.sentAt = now(); accept(true); toast(`Booked ${S.carrier} instead.`); }
+    else if (a === "extend") { S.deadline += 600; toast(`Waiting until ${hm(S.deadline)} before falling back.`, () => { S.deadline -= 600; renderAll(); }); renderAll(); }
+    else if (a === "send") { S.phase = "sent"; S.sentAt4 = now(); renderAll(); toast("Confirmation sent to Lumen Audio."); }
+    else if (a === "hold") { S.phase = "paused"; renderAll(); toast("Held. The email waits for you."); }
+    else if (a === "sendLater") { toast("Scheduled for 10:00. You can still change it here."); }
+  }
+
+  document.getElementById("pauseBtn").addEventListener("click", () => {
+    S.runPaused = !S.runPaused;
+    if (S.runPaused) pauseStart = Date.now();
+    else { pausedMs += Date.now() - pauseStart; pauseStart = null; }
+    document.getElementById("pauseBtn").textContent = S.runPaused ? "Resume run" : "Pause run";
+    toast(S.runPaused ? "Run paused. The agent starts nothing new and its timers stop." : "Run resumed.");
+    renderStatus();
+  });
+
+  /* ---------------- Steering ---------------- */
+  const form = document.getElementById("steer"), input = document.getElementById("steerIn"), slot = document.getElementById("previewSlot");
+  document.querySelectorAll(".sugg").forEach(b => b.addEventListener("click", () => { input.value = b.textContent; interpret(); }));
+  form.addEventListener("submit", e => { e.preventDefault(); interpret(); });
+  input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); interpret(); } });
+
+  function interpret() {
+    const text = input.value.trim();
+    if (!text) return;
+    const t = text.toLowerCase();
+    const scope = document.getElementById("scope").value;
+    let plan, apply;
+
+    if (scope === "lane") {
+      plan = { lines: [`Write this as a proposed rule for every SG → MY run: “${text}”.`, "Backtest it on the last 30 days before it can go live.", "This run is not changed."], btn: "Propose rule" };
+      apply = () => toast("Sent to Delegation as a proposed rule.");
+    } else if (/why|explain/.test(t)) {
+      slot.innerHTML = "";
+      input.value = "";
+      select(2, true);
+      return;
+    } else if (/(dhl|fedex|fastfreight)/.test(t) && /(min|accept|if)/.test(t)) {
+      const to = /dhl/.test(t) ? "DHL" : /fedex/.test(t) ? "FedEx" : "FastFreight";
+      const m = t.match(/(\d+)\s*min/); const mins = m ? +m[1] : 15;
+      const newDeadline = now() + mins * 60;
+      plan = { lines: [`Change the fallback in step 3 from ${S.fallback} ${usd(QUOTES[S.fallback])} to ${to} ${usd(QUOTES[to])}.`, `Fall back at ${hm(newDeadline)} instead of ${hm(S.deadline)}.`, QUOTES[to] < 2000 ? "Still inside the $2,000 limit, so it won't ask you." : "Over $2,000, so it will ask you before booking.", "Nothing else in the plan changes."], btn: "Apply to this run" };
+      apply = () => { const prev = { fallback: S.fallback, deadline: S.deadline, fallbackChanged: S.fallbackChanged }; S.fallback = to; S.deadline = newDeadline; S.fallbackChanged = true; renderAll(); toast("Fallback changed in step 3.", () => { Object.assign(S, prev); renderAll(); }); };
+    } else if (/(hold|pause|wait|stop|review|read|check).*(email|mail|confirm|customer)|(email|mail).*(hold|pause|wait|review|read)/.test(t)) {
+      plan = { lines: ["Add a breakpoint before step 4.", "The agent fills in the booking ref, then stops and waits for you before sending.", "The carrier booking is not affected."], btn: "Add breakpoint" };
+      apply = () => { S.bp[4] = true; renderAll(); toast("Breakpoint added before step 4.", () => { S.bp[4] = false; renderAll(); }); };
+    } else {
+      plan = { lines: [`Pin your note to step 4: “${text}”.`, "The agent reads pinned notes before it acts on that step.", "No step is added or removed."], btn: "Pin note" };
+      apply = () => { S.notes[4].push({ by: "You", t: hm(now()), text }); renderAll(); toast("Note pinned to step 4."); };
+    }
+
+    slot.innerHTML = `<div class="preview"><span class="who a">Here's what I'll change</span><ul>${plan.lines.map(l => `<li>${l}</li>`).join("")}</ul>
+      <div class="acts"><button type="button" class="btn btn-primary" id="pvApply">${plan.btn}</button><button type="button" class="btn btn-ghost" id="pvCancel">Cancel</button></div></div>`;
+    document.getElementById("pvApply").onclick = () => { apply(); slot.innerHTML = ""; input.value = ""; };
+    document.getElementById("pvCancel").onclick = () => { slot.innerHTML = ""; };
+  }
+
+  /* ---------------- Status + clock ---------------- */
+  function renderStatus() {
+    const pill = document.getElementById("status"), txt = document.getElementById("statusTxt");
+    pill.className = "pill";
+    if (S.runPaused) { pill.classList.add("attn"); txt.textContent = "Paused by you"; return; }
+    if (S.phase === "waiting") { pill.classList.add("agent"); txt.textContent = `Waiting on ${S.carrier}`; }
+    else if (S.phase === "sending") { pill.classList.add("agent"); txt.textContent = "Confirming to customer"; }
+    else if (S.phase === "paused") { pill.classList.add("attn"); txt.textContent = "Waiting for you at step 4"; }
+    else { pill.classList.add("ok"); txt.textContent = "Booked · watching transit"; }
+    document.getElementById("hdrCarrier").textContent = `${S.carrier} ${usd(QUOTES[S.carrier])}`;
+  }
+
+  function renderAll() { renderSteps(); renderReceipt(false); renderStatus(); tick(); }
+
+  function tick() {
+    if (S.runPaused) return;
+    const n = now();
+    if (S.phase === "waiting") {
+      const rem = S.deadline - n;
+      const el = document.getElementById("waitLeft"); if (el) el.textContent = left(rem);
+      const ring = document.getElementById("ring");
+      if (ring) { const span = S.deadline - S.sentAt; ring.style.strokeDashoffset = String(100.53 * (1 - Math.max(0, rem) / span)); }
+      if (rem <= 0) { S.carrier = S.fallback; accept(true); toast(`No accept in time. Booked ${S.carrier} as the fallback.`); }
+    } else if (S.phase === "sending") {
+      const rem = S.sendAt - n;
+      const el = document.getElementById("sendLeft"); if (el) el.textContent = left(rem);
+      if (rem <= 0) act("send");
+    }
+  }
+
+  /* ---------------- Toast ---------------- */
+  const tEl = document.getElementById("toast"), tBar = document.getElementById("toastBar"), tBtn = document.getElementById("toastBtn");
+  let tTimer = null, tUndo = null;
+  function toast(msg, undo) {
+    document.getElementById("toastMsg").textContent = msg;
+    tUndo = undo || null;
+    tBtn.hidden = !undo;
+    tEl.hidden = false;
+    tBar.style.transition = "none"; tBar.style.transform = "scaleX(1)";
+    requestAnimationFrame(() => requestAnimationFrame(() => { tBar.style.transition = "transform 6s linear"; tBar.style.transform = "scaleX(0)"; }));
+    clearTimeout(tTimer); tTimer = setTimeout(() => tEl.hidden = true, 6000);
+  }
+  tBtn.addEventListener("click", () => { if (tUndo) tUndo(); tEl.hidden = true; });
+
+  renderAll();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agent Delegation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="shared.css?v=3">
+<style>
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 24px 120px; display: grid; gap: 36px; }
+  .ph { display: grid; gap: 6px; max-width: 760px; }
+  .ph h1 { font-size: 28px; font-weight: 600; letter-spacing: -.015em; }
+  .ph p { color: var(--ink-2); font-size: 15px; }
+  section { display: grid; gap: 14px; scroll-margin-top: 60px; }
+  .sh { display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: space-between; align-items: baseline; }
+  .sh h2 { font-size: 19px; font-weight: 600; }
+  .sh p { color: var(--ink-2); font-size: 13.5px; max-width: 70ch; }
+
+  /* Level scale */
+  .scale { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+  .scale div { background: var(--surface); padding: 10px 14px; display: grid; gap: 2px; }
+  .scale b { font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .scale span { font-size: 12px; color: var(--ink-2); }
+  .lv-ico { width: 18px; height: 8px; display: inline-grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+  .lv-ico i { background: var(--line-2); border-radius: 1px; }
+  .lv-ico.l1 i:nth-child(-n+1), .lv-ico.l2 i:nth-child(-n+2), .lv-ico.l3 i { background: var(--agent); }
+
+  /* Matrix */
+  .matrix { overflow-x: auto; }
+  .mx { width: 100%; border-collapse: collapse; min-width: 880px; }
+  .mx th { text-align: left; font: 600 10.5px var(--f-cond); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); padding: 12px 14px 8px; border-bottom: 1px solid var(--line); }
+  .mx td { padding: 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .mx tr:last-child td { border-bottom: 0; }
+  .mx tr.pending td { background: var(--attn-soft); }
+  .act-name { font-weight: 600; }
+  .act-desc { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; max-width: 34ch; }
+  .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--r-sm); overflow: hidden; background: var(--surface); }
+  .seg button { border: 0; background: none; padding: 6px 10px; font-size: 12.5px; cursor: pointer; color: var(--ink-2); border-left: 1px solid var(--line); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+  .seg button:first-child { border-left: 0; }
+  .seg button:hover { color: var(--ink); background: var(--sunken); }
+  .seg button[aria-checked="true"] { background: var(--ink); color: var(--on-ink); }
+  .seg button[aria-checked="true"] .lv-ico i { background: color-mix(in srgb, var(--on-ink) 35%, transparent); }
+  .seg button[aria-checked="true"] .lv-ico.l1 i:nth-child(-n+1), .seg button[aria-checked="true"] .lv-ico.l2 i:nth-child(-n+2), .seg button[aria-checked="true"] .lv-ico.l3 i { background: var(--on-ink); }
+  .seg button.locked { cursor: not-allowed; opacity: .4; }
+  .rec-cell { display: grid; gap: 4px; font-size: 13px; min-width: 200px; }
+  .rec-cell .big { font: 500 13px var(--f-mono); }
+  .spark { width: 120px; height: 28px; display: block; }
+  .spark .area { fill: color-mix(in srgb, var(--crit) 14%, transparent); }
+  .spark .ln { fill: none; stroke: var(--crit); stroke-width: 1.5; }
+  .spark .end { fill: var(--crit); }
+  .spark .base { stroke: var(--line-2); stroke-width: 1; }
+  .hint { font-size: 12.5px; padding: 8px 10px; border-radius: var(--r-sm); margin-top: 8px; display: grid; gap: 6px; max-width: 46ch; }
+  .hint.promote { background: var(--agent-soft); color: var(--ink); }
+  .hint.impact { background: var(--surface); border: 1px solid var(--attn); color: var(--ink); }
+  .hint .who { font-size: 10px; }
+
+  /* Save bar */
+  .savebar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 60; display: flex; gap: 14px; align-items: center; padding: 10px 10px 10px 18px; border-radius: 12px; background: var(--ink); color: var(--on-ink); box-shadow: var(--shadow-pop); max-width: calc(100vw - 32px); flex-wrap: wrap; }
+  .savebar .btn { background: transparent; color: var(--on-ink); border-color: color-mix(in srgb, var(--on-ink) 30%, transparent); }
+  .savebar .btn-save { background: var(--on-ink); color: var(--ink); border-color: var(--on-ink); }
+
+  /* Learned + brain */
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+  .proposal { padding: 20px; display: grid; gap: 16px; border-color: var(--brain); }
+  .proposal h3 { font-size: 17px; font-weight: 600; }
+  .evid { display: grid; gap: 0; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; font-size: 13px; }
+  .evid div { display: grid; grid-template-columns: 70px 90px minmax(0, 1fr) 70px; gap: 10px; padding: 7px 12px; border-top: 1px solid var(--line); align-items: baseline; }
+  .evid div:first-child { border-top: 0; }
+  .evid .mono { font-size: 12px; }
+  .evid s { color: var(--ink-3); }
+  .rule-edit { display: grid; gap: 8px; padding: 12px 14px; background: var(--brain-soft); border-radius: var(--r-sm); }
+  .rule-edit textarea { width: 100%; border: 1px solid color-mix(in srgb, var(--brain) 35%, transparent); background: var(--surface); border-radius: var(--r-sm); padding: 8px 10px; resize: vertical; min-height: 58px; font-style: italic; }
+  .params { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .param { display: grid; gap: 6px; }
+  .param label { font-size: 12.5px; color: var(--ink-2); display: flex; justify-content: space-between; }
+  .param label b { font: 500 13px var(--f-mono); color: var(--ink); }
+  .param input[type=range] { width: 100%; accent-color: var(--brain); }
+  .bt { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: var(--r-sm); }
+  .bt-h { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+  .bt-nums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .bt-nums div { display: grid; gap: 2px; }
+  .bt-nums b { font: 500 20px var(--f-mono); }
+  .bt-nums span { font-size: 12px; color: var(--ink-2); }
+  .bt-nums .good { color: var(--ok); }
+  .bt-nums .cost { color: var(--attn); }
+  .strip { display: grid; grid-template-columns: repeat(52, minmax(0, 1fr)); gap: 2px; height: 26px; align-items: end; }
+  .strip i { display: block; background: var(--line-2); border-radius: 1px; height: 30%; }
+  .strip i.m { background: color-mix(in srgb, var(--brain) 35%, var(--surface)); height: 55%; }
+  .strip i.c { background: var(--brain); height: 100%; }
+  .strip-l { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--ink-2); }
+  .strip-l i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .p-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn-brain { background: var(--brain); color: var(--on-agent); border-color: var(--brain); }
+  .btn-brain:hover { filter: brightness(1.08); border-color: var(--brain); }
+
+  .brain { padding: 18px; display: grid; gap: 16px; }
+  .brain h3 { font-size: 15px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; }
+  .rules { display: grid; gap: 6px; }
+  .rules div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .rules div:last-child { border-bottom: 0; }
+  .rules .fired { font: 500 12px var(--f-mono); color: var(--ink-3); }
+  .rules .new { color: var(--brain); font-weight: 600; }
+  .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+  .log li { display: grid; gap: 4px; padding-left: 14px; border-left: 2px solid var(--line-2); }
+  .log li.fresh { border-left-color: var(--brain); animation: settle .35s ease-out; }
+  .log .v { font: 500 12px var(--f-mono); }
+  .log .meta { font-size: 12px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+  .diff { font: 400 12px/1.55 var(--f-mono); border-radius: 4px; overflow: hidden; }
+  .diff div { padding: 1px 8px; overflow-wrap: anywhere; }
+  .diff .rm { background: var(--crit-soft); color: var(--crit); }
+  .diff .ad { background: var(--ok-soft); color: var(--ok); }
+  .log .out { font-size: 12px; color: var(--ink-2); }
+  @keyframes settle { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+  @media (max-width: 1040px) { .two { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 640px) {
+    .wrap { padding: 18px 16px 120px; gap: 28px; }
+    .scale { grid-template-columns: 1fr 1fr; }
+    .bt-nums { grid-template-columns: 1fr 1fr; }
+    .evid div { grid-template-columns: 60px minmax(0, 1fr); }
+    .evid div > :nth-child(2), .evid div > :nth-child(4) { display: none; }
+    .strip { grid-template-columns: repeat(26, minmax(0, 1fr)); height: 40px; }
+  }
+</style>
+</head>
+<body>
+<nav class="cnav">
+  <a class="cnav-brand" href="index.html">Freight agent · concepts</a>
+  <div class="cnav-links">
+    <a href="index.html">Review</a>
+    <a href="inbox.html">1 · Attention inbox</a>
+    <a href="run.html">2 · Run trajectory</a>
+    <a href="delegation.html" aria-current="page">3 · Delegation</a>
+    <a href="thread.html">4 · Ops thread</a>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div class="ph">
+    <span class="label">Delegation</span>
+    <h1>What the agent may do without asking</h1>
+    <p>Each action has a level, and each level has a track record from the last 30 days. Raise a level and you'll see what would have happened if it had been in place.</p>
+  </div>
+
+  <section>
+    <div class="scale" aria-label="Autonomy levels">
+      <div><b><span class="lv-ico"><i></i><i></i><i></i></span>Off</b><span>A person does it. The agent stays out.</span></div>
+      <div><b><span class="lv-ico l1"><i></i><i></i><i></i></span>Suggest</b><span>The agent prepares it. A person approves.</span></div>
+      <div><b><span class="lv-ico l2"><i></i><i></i><i></i></span>Act, hold first</b><span>The agent acts after a short hold you can stop.</span></div>
+      <div><b><span class="lv-ico l3"><i></i><i></i><i></i></span>Act</b><span>The agent acts. You see it in the log.</span></div>
+    </div>
+    <div class="card matrix">
+      <table class="mx" id="mx">
+        <thead><tr><th style="width:30%">Action</th><th>Level</th><th style="width:30%">Last 30 days</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="two">
+    <section id="learned">
+      <div class="sh">
+        <h2>Learned from your corrections</h2>
+        <p>When people make the same change again and again, the agent writes it up as a rule and tests it on past runs. Nothing goes live until someone adds it.</p>
+      </div>
+      <article class="card proposal" id="proposal">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="pill brain">▲ Proposed rule</span><span class="faint" style="font-size:12.5px">Spotted 18 Oct from 4 corrections in 7 days</span></div>
+        <h3>Prefer FastFreight over FedEx on small Bangkok shipments</h3>
+        <div class="evid">
+          <div><span class="mono">14 Oct</span><span class="who h">Ravi</span><span>SHP-1988 · 220 kg · <s>FedEx $705</s> → FastFreight $731</span><span class="mono faint">+3.7%</span></div>
+          <div><span class="mono">15 Oct</span><span class="who h">Priya</span><span>SHP-1996 · 140 kg · <s>FedEx $480</s> → FastFreight $498</span><span class="mono faint">+3.8%</span></div>
+          <div><span class="mono">16 Oct</span><span class="who h">Ravi</span><span>SHP-2004 · 290 kg · <s>FedEx $890</s> → FastFreight $931</span><span class="mono faint">+4.6%</span></div>
+          <div><span class="mono">18 Oct</span><span class="who h">Ravi</span><span>SHP-2018 · 260 kg · <s>FedEx $812</s> → FastFreight $840</span><span class="mono faint">+3.4%</span></div>
+        </div>
+        <p class="muted" style="font-size:13px">Ravi's note on SHP-2004: “FedEx keeps missing the Lat Krabang cut-off.” The agent read this as the reason.</p>
+
+        <div class="rule-edit">
+          <span class="who b">Rule text, edit freely</span>
+          <textarea id="ruleText" aria-label="Rule text">On SG → TH shipments under 300 kg, prefer FastFreight when it costs less than 5% more than the cheapest quote.</textarea>
+        </div>
+
+        <div class="params">
+          <div class="param"><label for="pW">Weight under <b id="pWv">300 kg</b></label><input id="pW" type="range" min="100" max="600" step="50" value="300"></div>
+          <div class="param"><label for="pD">Price difference under <b id="pDv">5%</b></label><input id="pD" type="range" min="1" max="10" step="1" value="5"></div>
+        </div>
+
+        <div class="bt">
+          <div class="bt-h"><span class="label">Backtest · 52 SG → TH runs, 19 Sep – 18 Oct</span><span class="faint" style="font-size:12px">Updates as you move the sliders</span></div>
+          <div class="bt-nums">
+            <div><b id="bMatch">0</b><span>runs in scope</span></div>
+            <div><b id="bChange">0</b><span>would switch carrier</span></div>
+            <div><b class="cost" id="bCost">$0</b><span>extra cost, total</span></div>
+            <div><b class="good" id="bOT">0%</b><span>on-time, was 96.1%</span></div>
+          </div>
+          <div class="strip" id="strip" aria-hidden="true"></div>
+          <div class="strip-l"><span><i style="background:var(--brain)"></i>Would switch</span><span><i style="background:color-mix(in srgb, var(--brain) 35%, var(--surface))"></i>In scope, no change</span><span><i style="background:var(--line-2)"></i>Out of scope</span><span id="bWarn"></span></div>
+        </div>
+
+        <div class="p-acts">
+          <button class="btn btn-brain" id="addRule">Add to company brain</button>
+          <button class="btn" id="shadowRule">Run in shadow for a week</button>
+          <button class="btn btn-ghost" id="dismissRule">Dismiss</button>
+        </div>
+      </article>
+    </section>
+
+    <aside id="brain" class="card brain">
+      <h3>Company brain <span class="mono faint" id="brainV">v14</span></h3>
+      <div>
+        <span class="label">Rules · times used this week</span>
+        <div class="rules" id="rules">
+          <div><span>Carrier selection</span><span class="fired">61×</span></div>
+          <div><span>Auto-book threshold</span><span class="fired">212×</span></div>
+          <div><span>Customer notify</span><span class="fired">148×</span></div>
+          <div><span>Vendor accept window</span><span class="fired">9 fallbacks</span></div>
+        </div>
+      </div>
+      <div>
+        <span class="label">History</span>
+        <ol class="log" id="log" style="margin-top:10px">
+          <li><span class="v">v14 · 3 Oct</span><span class="meta"><span class="who h">Ravi</span>Auto-book threshold</span>
+            <div class="diff"><div class="rm">− Auto-book if value &lt;$1.5k and not hazmat.</div><div class="ad">+ Auto-book if value &lt;$2k and not hazmat.</div></div>
+            <span class="out">Since then: 38 more runs booked alone, 0 incidents.</span></li>
+          <li><span class="v">v13 · 22 Sep</span><span class="meta"><span class="who h">Priya</span>Customer notify</span>
+            <div class="diff"><div class="rm">− Send email on step 4 completion.</div><div class="ad">+ Send formal email with ETA + booking ref on step 4 completion.</div></div>
+            <span class="out">Customer “where is my shipment?” emails down 31%.</span></li>
+          <li><span class="v">v12 · 10 Sep</span><span class="meta"><span class="who a">Agent proposed</span><span class="who h">Ravi accepted</span>Vendor accept window</span>
+            <div class="diff"><div class="rm">− Vendors get 30 minutes to accept.</div><div class="ad">+ Vendors get 15 minutes to accept.</div></div>
+            <span class="out">Learned from 11 manual fallbacks. Median booking time 22 → 9 min.</span></li>
+        </ol>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<div class="savebar" id="savebar" hidden>
+  <span id="saveTxt"></span>
+  <button class="btn btn-sm" id="discard">Discard</button>
+  <button class="btn btn-sm btn-save" id="save">Save as v15</button>
+</div>
+
+<div class="toast" id="toast" hidden role="status" aria-live="polite"><span id="toastMsg"></span></div>
+
+<script>
+(() => {
+  const LV = ["Off", "Suggest", "Act, hold first", "Act"];
+  const rows = [
+    { id: "parse", name: "Read booking requests", desc: "Turn emails and PDFs into shipments", lv: 3, n: 412, o: 2, verb: "corrected", spark: [1, 0, 0, 1, 0, 0, 0, 0],
+      impact: { 2: "Adds a 30 s hold to every new shipment. Slows 412 runs a month by 30 s each for 2 corrections." } },
+    { id: "carrier", name: "Choose the carrier", desc: "Compare quotes and pick using company rules", lv: 3, n: 388, o: 9, verb: "overridden", spark: [0, 1, 1, 0, 2, 1, 3, 1],
+      note: "4 of the 9 overrides were small Bangkok runs. See the proposed rule below.",
+      impact: { 1: "Every carrier choice would wait for a person. That's about 13 a day, mostly ones you'd approve unchanged." } },
+    { id: "book", name: "Book under $2,000", desc: "Send the booking to the carrier", lv: 3, n: 361, o: 1, verb: "cancelled", spark: [0, 0, 0, 1, 0, 0, 0, 0] },
+    { id: "bookbig", name: "Book $2,000 and over", desc: "Large bookings, currently gated to Ravi", lv: 1, n: 27, o: 1, verb: "rejected", spark: [0, 0, 1, 0, 0, 0, 0, 0],
+      promote: "26 of 27 approved unchanged. Raising the auto-book limit to $2,500 would have saved Ravi 9 approvals this month, with no rejected ones in that range.",
+      impact: { 2: "In the last 30 days, 26 large bookings would have gone out after a 30 s hold. The 1 that Ravi rejected (SHP-1931, $4,120) would have been booked, then cancelled at a $180 fee.", 3: "Same as above, without a hold. Consider raising the limit instead, in Auto-book threshold." } },
+    { id: "email", name: "Email the customer", desc: "Confirmations, ETA updates, delay notices", lv: 2, n: 402, o: 4, verb: "held or edited", spark: [1, 0, 1, 0, 0, 1, 0, 1],
+      impact: { 3: "Removes the 30 s hold. In the last 30 days, 3 emails were held and 1 edited in that window. All 4 had a wrong delivery address." } },
+    { id: "customs", name: "Reply to customs brokers", desc: "In shadow: agent drafts, a person sends", lv: 1, n: 20, o: 3, verb: "edited before sending", spark: [0, 1, 0, 0, 1, 0, 1, 0],
+      promote: "17 of 20 drafts were sent unedited. The 3 edits all changed an HS code. Promote, but keep HS code changes at Suggest?",
+      impact: { 2: "17 of the last 20 replies would have gone out on their own. The 3 that people edited changed an HS code, which affects duty. Suggest keeping HS code changes at Suggest.", 3: "Same as Act, hold first, with no chance to stop a wrong HS code. Not recommended." } },
+    { id: "change", name: "Change a confirmed booking", desc: "Reroute, rebook or change pickup", lv: 1, n: 14, o: 4, verb: "edited", spark: [0, 0, 1, 1, 0, 1, 0, 1],
+      impact: { 2: "4 of the last 14 changes were edited by a person first, mostly pickup times. Not enough track record yet." } },
+    { id: "cancel", name: "Cancel a shipment", desc: "Always a person. Locked by your admin.", lv: 0, n: 0, o: 0, verb: "", spark: [], locked: true }
+  ];
+  const orig = Object.fromEntries(rows.map(r => [r.id, r.lv]));
+
+  function spark(vals) {
+    if (!vals.length) return `<span class="faint" style="font-size:12px">No history</span>`;
+    const w = 120, h = 28, max = Math.max(3, ...vals), step = w / (vals.length - 1);
+    const pts = vals.map((v, i) => [i * step, h - 3 - (v / max) * (h - 8)]);
+    const d = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+    const last = pts[pts.length - 1];
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Overrides per week, last 8 weeks: ${vals.join(", ")}">
+      <line class="base" x1="0" x2="${w}" y1="${h - 3}" y2="${h - 3}"></line>
+      <path class="area" d="${d} L ${w} ${h - 3} L 0 ${h - 3} Z"></path><path class="ln" d="${d}"></path>
+      <circle class="end" cx="${last[0] - 2}" cy="${last[1]}" r="2.5"></circle></svg>`;
+  }
+
+  function renderMx() {
+    const tb = document.querySelector("#mx tbody");
+    tb.innerHTML = "";
+    rows.forEach(r => {
+      const tr = document.createElement("tr");
+      const changed = r.lv !== orig[r.id];
+      if (changed) tr.className = "pending";
+      const rate = r.n ? ((r.o / r.n) * 100).toFixed(1) : null;
+      const impact = changed ? (r.impact && r.impact[r.lv]) || (r.lv < orig[r.id] ? "Lowers autonomy. Nothing risky, but more of this lands in your inbox." : "No track record at this level yet. The agent will report weekly.") : null;
+      tr.innerHTML = `
+        <td><div class="act-name">${r.name}</div><div class="act-desc">${r.desc}</div></td>
+        <td>
+          <div class="seg" role="radiogroup" aria-label="${r.name} level">
+            ${LV.map((l, i) => `<button role="radio" aria-checked="${r.lv === i}" data-i="${i}" class="${r.locked && i ? "locked" : ""}" ${r.locked && i ? 'aria-disabled="true"' : ""}><span class="lv-ico ${i ? "l" + i : ""}"><i></i><i></i><i></i></span>${l}</button>`).join("")}
+          </div>
+          ${impact ? `<div class="hint impact"><span class="who a">If this had been on for 30 days</span><span>${impact}</span></div>` : ""}
+          ${!changed && r.promote ? `<div class="hint promote"><span class="who a">Agent asks</span><span>${r.promote}</span><span><button class="btn btn-sm" data-promote="${r.id}">Try one level up</button></span></div>` : ""}
+        </td>
+        <td><div class="rec-cell">${r.n ? `<span class="big">${r.n} decisions · ${r.o} ${r.verb}</span><span class="faint">${rate}% · overrides per week</span>${spark(r.spark)}` : `<span class="faint">Never done by the agent</span>`}${r.note ? `<span class="muted" style="font-size:12.5px">${r.note}</span>` : ""}</div></td>`;
+      tr.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+        if (r.locked && +b.dataset.i) { toast("Cancelling shipments is locked by your admin."); return; }
+        r.lv = +b.dataset.i; renderMx();
+      }));
+      const p = tr.querySelector("[data-promote]");
+      if (p) p.addEventListener("click", () => { r.lv = Math.min(3, r.lv + 1); renderMx(); });
+      tb.appendChild(tr);
+    });
+    const changes = rows.filter(r => r.lv !== orig[r.id]);
+    const bar = document.getElementById("savebar");
+    bar.hidden = !changes.length;
+    document.getElementById("saveTxt").textContent = changes.map(r => `${r.name}: ${LV[orig[r.id]]} → ${LV[r.lv]}`).join(" · ");
+    document.getElementById("save").textContent = `Save as v${ver + 1}`;
+  }
+  document.getElementById("discard").onclick = () => { rows.forEach(r => r.lv = orig[r.id]); renderMx(); };
+  document.getElementById("save").onclick = () => {
+    const changes = rows.filter(r => r.lv !== orig[r.id]);
+    addVersion("You", changes.map(r => r.name).join(", "), changes.map(r => [`${r.name}: ${LV[orig[r.id]]}`, `${r.name}: ${LV[r.lv]}`]), "Takes effect on new runs. Runs in flight keep their current levels.");
+    changes.forEach(r => orig[r.id] = r.lv);
+    renderMx();
+    toast("Saved. New runs use the new levels.");
+  };
+
+  /* ---------- Backtest ---------- */
+  // Deterministic sample of 52 SG → TH runs.
+  let seed = 69;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const runs = Array.from({ length: 52 }, () => {
+    const kg = Math.round(80 + rnd() * 620);
+    const fedex = Math.round(220 + kg * 2.6 + rnd() * 60);
+    const deltaPct = -2 + rnd() * 11;
+    return { kg, fedex, ff: Math.round(fedex * (1 + deltaPct / 100)), deltaPct };
+  });
+  const pW = document.getElementById("pW"), pD = document.getElementById("pD");
+  function backtest() {
+    const W = +pW.value, D = +pD.value;
+    document.getElementById("pWv").textContent = W + " kg";
+    document.getElementById("pDv").textContent = D + "%";
+    const t = document.getElementById("ruleText");
+    t.value = t.value.replace(/under \d+ kg/, `under ${W} kg`).replace(/less than \d+% more/, `less than ${D}% more`);
+    let match = 0, change = 0, cost = 0;
+    const strip = document.getElementById("strip");
+    strip.innerHTML = "";
+    runs.forEach(r => {
+      const inScope = r.kg < W;
+      const sw = inScope && r.deltaPct > 0 && r.deltaPct < D;
+      if (inScope) match++;
+      if (sw) { change++; cost += r.ff - r.fedex; }
+      const i = document.createElement("i");
+      i.className = sw ? "c" : inScope ? "m" : "";
+      i.title = `${r.kg} kg · FedEx $${r.fedex} · FastFreight $${r.ff}${sw ? " · would switch" : ""}`;
+      strip.appendChild(i);
+    });
+    const ot = 96.1 + 3.6 * (1 - Math.exp(-change / 7));
+    document.getElementById("bMatch").textContent = match;
+    document.getElementById("bChange").textContent = change;
+    document.getElementById("bCost").textContent = "+$" + cost.toLocaleString("en-US");
+    document.getElementById("bOT").textContent = ot.toFixed(1) + "%";
+    document.getElementById("bWarn").textContent = W > 400 ? "Above 400 kg, FastFreight's Bangkok capacity is limited on Fridays." : "";
+  }
+  pW.addEventListener("input", backtest);
+  pD.addEventListener("input", backtest);
+
+  /* ---------- Brain versions ---------- */
+  let ver = 14;
+  function addVersion(who, what, pairs, out) {
+    ver++;
+    document.getElementById("brainV").textContent = "v" + ver;
+    const li = document.createElement("li");
+    li.className = "fresh";
+    li.innerHTML = `<span class="v">v${ver} · 19 Oct</span><span class="meta">${who === "agent" ? '<span class="who a">Agent proposed</span><span class="who h">You accepted</span>' : '<span class="who h">You</span>'}${what}</span>
+      <div class="diff">${pairs.map(p => (p[0] ? `<div class="rm">− ${p[0]}</div>` : "") + `<div class="ad">+ ${p[1]}</div>`).join("")}</div>
+      <span class="out">${out}</span>`;
+    document.getElementById("log").prepend(li);
+  }
+  const prop = document.getElementById("proposal");
+  document.getElementById("addRule").onclick = () => {
+    const text = document.getElementById("ruleText").value.trim();
+    addVersion("agent", "Bangkok carrier preference", [[null, text]], `Backtest: ${document.getElementById("bChange").textContent} of 52 runs switch, ${document.getElementById("bCost").textContent} total.`);
+    const rules = document.getElementById("rules");
+    const row = document.createElement("div");
+    row.innerHTML = `<span class="new">Bangkok carrier preference</span><span class="fired">new</span>`;
+    rules.prepend(row);
+    prop.innerHTML = `<div style="display:grid;gap:6px"><span class="pill ok" style="justify-self:start">Added as v${ver}</span><p>The agent uses this rule on new SG → TH runs. It will tell you if overrides on this lane keep happening.</p></div>`;
+    toast("Rule added to the company brain.");
+  };
+  document.getElementById("shadowRule").onclick = () => toast("Shadow mode for 7 days: the agent logs what it would have picked, and changes nothing.");
+  document.getElementById("dismissRule").onclick = () => { prop.innerHTML = `<p class="muted">Dismissed. The agent won't propose this again unless the pattern doubles.</p>`; };
+
+  const tEl = document.getElementById("toast"); let tT;
+  function toast(m) { document.getElementById("toastMsg").textContent = m; tEl.hidden = false; clearTimeout(tT); tT = setTimeout(() => tEl.hidden = true, 4000); }
+
+  renderMx();
+  backtest();
+  if (location.hash === "#learned" || location.hash === "#brain") document.querySelector(location.hash).scrollIntoView();
+})();
+</script>
+</body>
+</html>

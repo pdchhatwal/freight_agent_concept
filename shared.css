@@ -1,0 +1,280 @@
+/* Layout: slim concept switcher on top; each concept owns the workspace below it.
+   Colour encodes authorship: cobalt = the agent did/decided it, plum = a company-brain rule, ink = a person. */
+:root {
+  --bg: #EDF1F0;
+  --surface: #FFFFFF;
+  --sunken: #F4F7F6;
+  --ink: #13201C;
+  --ink-2: #53625C;
+  --ink-3: #85928D;
+  --line: #DAE2DF;
+  --line-2: #C5CFCB;
+
+  --agent: #2F54D6;
+  --agent-soft: #E9EEFD;
+  --agent-ink: #1E3BA8;
+  --on-agent: #FFFFFF;
+
+  --brain: #8B3FA6;
+  --brain-soft: #F5EBF8;
+
+  --attn: #A35F05;
+  --attn-soft: #FCF0DC;
+  --crit: #BF372C;
+  --crit-soft: #FBE8E5;
+  --ok: #15805A;
+  --ok-soft: #E1F3EA;
+
+  --on-ink: #FFFFFF;
+  --nav-bg: #13201C;
+  --nav-fg: #FFFFFF;
+  --focus: #2F54D6;
+  --shadow: 0 1px 2px rgba(19, 32, 28, .06), 0 6px 20px rgba(19, 32, 28, .07);
+  --shadow-pop: 0 10px 40px rgba(19, 32, 28, .18);
+
+  --f-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-cond: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --r: 10px;
+  --r-sm: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0B100F;
+    --surface: #131A18;
+    --sunken: #0F1514;
+    --ink: #E2EAE6;
+    --ink-2: #9BA9A3;
+    --ink-3: #6C7974;
+    --line: #232E2B;
+    --line-2: #34423D;
+    --agent: #8DA5FF;
+    --agent-soft: #19213F;
+    --agent-ink: #B5C5FF;
+    --on-agent: #0B100F;
+    --brain: #D69CEB;
+    --brain-soft: #2B1932;
+    --attn: #F1B24E;
+    --attn-soft: #33250E;
+    --crit: #F27E70;
+    --crit-soft: #3A1814;
+    --ok: #53C891;
+    --ok-soft: #0E2D20;
+    --on-ink: #0B100F;
+    --nav-bg: #1B2522;
+    --nav-fg: #E2EAE6;
+    --focus: #8DA5FF;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .35);
+    --shadow-pop: 0 10px 40px rgba(0, 0, 0, .6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0B100F;
+  --surface: #131A18;
+  --sunken: #0F1514;
+  --ink: #E2EAE6;
+  --ink-2: #9BA9A3;
+  --ink-3: #6C7974;
+  --line: #232E2B;
+  --line-2: #34423D;
+  --agent: #8DA5FF;
+  --agent-soft: #19213F;
+  --agent-ink: #B5C5FF;
+  --on-agent: #0B100F;
+  --brain: #D69CEB;
+  --brain-soft: #2B1932;
+  --attn: #F1B24E;
+  --attn-soft: #33250E;
+  --crit: #F27E70;
+  --crit-soft: #3A1814;
+  --ok: #53C891;
+  --ok-soft: #0E2D20;
+  --on-ink: #0B100F;
+  --nav-bg: #1B2522;
+  --nav-fg: #E2EAE6;
+  --focus: #8DA5FF;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .35);
+  --shadow-pop: 0 10px 40px rgba(0, 0, 0, .6);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.45 var(--f-sans);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+a { color: var(--agent-ink); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.num { font-variant-numeric: tabular-nums; }
+.label {
+  font: 600 11px/1.2 var(--f-cond);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.muted { color: var(--ink-2); }
+.faint { color: var(--ink-3); }
+
+/* ---------- Concept switcher ---------- */
+.cnav {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  height: 44px;
+  background: var(--nav-bg);
+  color: var(--nav-fg);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.cnav::-webkit-scrollbar { display: none; }
+.cnav-brand {
+  font: 600 12px/1 var(--f-cond);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: .7;
+}
+.cnav-links { display: flex; gap: 2px; }
+.cnav-links a {
+  color: inherit;
+  text-decoration: none;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: .72;
+}
+.cnav-links a:hover { opacity: 1; }
+.cnav-links a[aria-current="page"] { opacity: 1; background: color-mix(in srgb, var(--nav-fg) 14%, transparent); }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+  color: var(--ink);
+  transition: border-color .12s, background .12s;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn-primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.btn-primary:hover { background: var(--ink-2); border-color: var(--ink-2); }
+.btn-agent { background: var(--agent); color: var(--on-agent); border-color: var(--agent); }
+.btn-agent:hover { filter: brightness(1.08); border-color: var(--agent); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn-ghost:hover { background: var(--sunken); border-color: var(--line); color: var(--ink); }
+.btn-sm { min-height: 26px; padding: 0 8px; font-size: 12px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* ---------- Pills, tags, dots ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--sunken);
+  color: var(--ink-2);
+}
+.pill.agent { background: var(--agent-soft); color: var(--agent-ink); }
+.pill.brain { background: var(--brain-soft); color: var(--brain); }
+.pill.attn { background: var(--attn-soft); color: var(--attn); }
+.pill.crit { background: var(--crit-soft); color: var(--crit); }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+
+.dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.dot.live { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
+/* Authorship marks: who did this? */
+.who {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 600 10.5px/1 var(--f-cond);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.who::before { content: ""; width: 8px; height: 8px; flex: none; }
+.who.a { color: var(--agent); }
+.who.a::before { background: var(--agent); transform: rotate(45deg) scale(.85); }
+.who.b { color: var(--brain); }
+.who.b::before { background: var(--brain); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.who.h { color: var(--ink); }
+.who.h::before { background: var(--ink); border-radius: 50%; }
+
+.kbd {
+  display: inline-block;
+  font: 500 11px/1.4 var(--f-mono);
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+  color: var(--ink-2);
+  background: var(--surface);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+/* ---------- Toast with undo ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 10px 10px 16px;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--on-ink);
+  box-shadow: var(--shadow-pop);
+  z-index: 100;
+  font-size: 13px;
+}
+.toast .btn { background: transparent; color: var(--on-ink); border-color: color-mix(in srgb, var(--on-ink) 30%, transparent); }
+.toast .bar { height: 2px; background: color-mix(in srgb, var(--on-ink) 25%, transparent); position: absolute; left: 0; right: 0; bottom: 0; border-radius: 0 0 10px 10px; overflow: hidden; }
+.toast .bar i { display: block; height: 100%; background: var(--on-ink); transform-origin: left; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

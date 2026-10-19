@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Attention Inbox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="shared.css?v=3">
+<style>
+  .app { display: grid; grid-template-columns: 208px minmax(0, 1fr) 330px; min-height: calc(100vh - 44px); }
+
+  /* App rail */
+  .rail { border-right: 1px solid var(--line); padding: 18px 12px; display: flex; flex-direction: column; gap: 4px; background: var(--surface); }
+  .rail a { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: var(--r-sm); text-decoration: none; color: var(--ink-2); font-weight: 500; }
+  .rail a:hover { background: var(--sunken); color: var(--ink); }
+  .rail a[aria-current] { background: var(--sunken); color: var(--ink); }
+  .rail .count { font: 500 12px var(--f-mono); color: var(--ink-3); }
+  .rail a[aria-current] .count { color: var(--attn); }
+  .rail .agent-state { margin-top: auto; padding: 12px; border-radius: var(--r); background: var(--agent-soft); display: grid; gap: 4px; font-size: 12.5px; color: var(--agent-ink); }
+  .rail .agent-state b { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+
+  /* Main */
+  .main { padding: 24px 28px 64px; display: grid; gap: 22px; align-content: start; }
+  .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .head h1 { font-size: 26px; font-weight: 600; letter-spacing: -.015em; display: flex; align-items: baseline; gap: 10px; }
+  .head h1 .n { font: 500 22px var(--f-mono); color: var(--attn); }
+  .head p { color: var(--ink-2); margin-top: 4px; }
+  .keys { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-3); }
+  .keys span { display: inline-flex; gap: 4px; align-items: center; }
+
+  /* Fleet */
+  .fleet { padding: 14px 16px; display: grid; gap: 10px; }
+  .fleet-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .tiles { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; }
+  .tile { aspect-ratio: 1; border-radius: 3px; border: 0; padding: 0; cursor: default; background: var(--line); max-width: 100%; }
+  .tile.done { background: color-mix(in srgb, var(--ok) 45%, var(--surface)); }
+  .tile.transit { background: color-mix(in srgb, var(--agent) 30%, var(--surface)); }
+  .tile.working { background: var(--agent); animation: pulse 1.8s ease-in-out infinite; }
+  .tile.you { background: var(--attn); cursor: pointer; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--attn); }
+  .tile.you.crit { background: var(--crit); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--crit); }
+  .tile.you.resolved { background: color-mix(in srgb, var(--agent) 30%, var(--surface)); box-shadow: none; cursor: default; }
+  .fleet-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); }
+  .fleet-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+  /* Decision cards */
+  .queue { display: grid; gap: 14px; }
+  .dcard { padding: 18px 20px; display: grid; gap: 12px; position: relative; scroll-margin-top: 60px; transition: border-color .15s, box-shadow .15s; }
+  .dcard::before { content: ""; position: absolute; left: -1px; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: var(--attn); }
+  .dcard.crit::before { background: var(--crit); }
+  .dcard.brain::before { background: var(--brain); }
+  .dcard:focus { outline: none; }
+  .dcard.focused { border-color: var(--ink-3); box-shadow: var(--shadow); }
+  .dc-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 13px; color: var(--ink-2); }
+  .dc-top .id { font: 500 13px var(--f-mono); color: var(--ink); }
+  .due { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); }
+  .due b { font: 600 13px var(--f-mono); color: var(--ink); }
+  .due.soon b { color: var(--crit); }
+  .dcard h3 { font-size: 17px; font-weight: 600; line-height: 1.3; max-width: 62ch; }
+  .dcard .ctx { color: var(--ink-2); max-width: 70ch; }
+  .rec { background: var(--agent-soft); border-radius: var(--r-sm); padding: 12px 14px; display: grid; gap: 6px; }
+  .rec-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .rec-h .conf { font: 500 12px var(--f-mono); color: var(--agent-ink); }
+  .meter { width: 54px; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--agent) 20%, transparent); overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--agent); }
+  .rec p { font-weight: 500; color: var(--ink); }
+  .rec ul { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 13px; display: grid; gap: 2px; }
+  .dcard.brain .rec { background: var(--brain-soft); }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt { display: grid; justify-items: start; gap: 1px; min-height: 0; padding: 7px 12px 7px 10px; text-align: left; white-space: normal; }
+  .opt .t { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+  .opt .s { font-size: 11.5px; font-weight: 400; opacity: .75; padding-left: 26px; }
+  .opt.btn-agent .kbd { background: transparent; color: inherit; border-color: color-mix(in srgb, var(--on-agent) 40%, transparent); }
+  .fallback { font-size: 12.5px; color: var(--ink-3); display: flex; gap: 6px; }
+  .fallback::before { content: "⏱"; }
+
+  .resolved-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px; font-size: 13px; color: var(--ink-2); border-style: dashed; animation: settle .35s ease-out; }
+  .resolved-row .id { font: 500 13px var(--f-mono); color: var(--ink); }
+  .resolved-row .ok-mark { color: var(--ok); font-weight: 600; }
+  @keyframes settle { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+  .empty { padding: 28px; text-align: center; color: var(--ink-2); display: grid; gap: 6px; }
+  .empty b { color: var(--ok); font-size: 16px; }
+
+  /* Side */
+  .side { border-left: 1px solid var(--line); background: var(--surface); padding: 22px 18px 40px; display: grid; gap: 26px; align-content: start; }
+  .side section { display: grid; gap: 10px; }
+  .side h2 { font-size: 14px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; }
+  .working { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .working li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .working li:first-child { border-top: 0; }
+  .working .dot { margin-top: 6px; color: var(--agent); }
+  .working .id { font: 500 12px var(--f-mono); }
+  .working .what { color: var(--ink-2); }
+  .working .t { font: 500 12px var(--f-mono); color: var(--attn); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat { background: var(--sunken); border-radius: var(--r-sm); padding: 10px 12px; display: grid; gap: 2px; }
+  .stat b { font: 500 20px var(--f-mono); }
+  .stat span { font-size: 12px; color: var(--ink-2); }
+  .spot { border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 10px; }
+  .spot .id { font: 500 12px var(--f-mono); color: var(--ink-2); }
+  .spot p { font-size: 13.5px; }
+  .spot .acts { display: flex; gap: 8px; }
+  .spot .acts .btn { flex: 1; }
+  .spot-foot { font-size: 12px; color: var(--ink-3); }
+
+  @media (max-width: 1180px) {
+    .app { grid-template-columns: minmax(0, 1fr) 320px; }
+    .rail { display: none; }
+  }
+  @media (max-width: 880px) {
+    .app { grid-template-columns: minmax(0, 1fr); }
+    .side { border-left: 0; border-top: 1px solid var(--line); }
+    .main { padding: 18px 16px 32px; }
+    .tiles { grid-template-columns: repeat(16, minmax(0, 1fr)); }
+    .keys { display: none; }
+  }
+  @media (max-width: 520px) {
+    .tiles { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+    .due { margin-left: 0; width: 100%; }
+    .opt { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<nav class="cnav">
+  <a class="cnav-brand" href="index.html">Freight agent · concepts</a>
+  <div class="cnav-links">
+    <a href="index.html">Review</a>
+    <a href="inbox.html" aria-current="page">1 · Attention inbox</a>
+    <a href="run.html">2 · Run trajectory</a>
+    <a href="delegation.html">3 · Delegation</a>
+    <a href="thread.html">4 · Ops thread</a>
+  </div>
+</nav>
+
+<div class="app">
+  <aside class="rail" aria-label="App">
+    <a href="inbox.html" aria-current="page">Needs you <span class="count" id="railCount">4</span></a>
+    <a href="run.html">Runs <span class="count">48</span></a>
+    <a href="delegation.html">Delegation <span class="count"></span></a>
+    <a href="delegation.html#brain">Company brain <span class="count">v14</span></a>
+    <a href="thread.html">Ops thread <span class="count">2</span></a>
+    <div class="agent-state">
+      <b><span class="dot live"></span>Agent working</b>
+      <span>6 runs in progress. Acts alone up to $2,000, never on dangerous goods.</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="head">
+      <div>
+        <h1>Needs you <span class="n" id="count">4</span></h1>
+        <p id="sub">The agent handled 31 runs today without you. Next deadline in <b class="mono" id="nextDue">…</b>.</p>
+      </div>
+      <div class="keys" aria-label="Keyboard shortcuts">
+        <span><span class="kbd">J</span><span class="kbd">K</span> move</span>
+        <span><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span> answer</span>
+        <span><span class="kbd">↵</span> take recommendation</span>
+      </div>
+    </div>
+
+    <div class="card fleet">
+      <div class="fleet-top">
+        <span class="label">Today's fleet · 48 runs</span>
+        <span class="muted" style="font-size:12.5px">Lit tiles are waiting on a person. Click one to jump to it.</span>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <div class="fleet-legend">
+        <span><i style="background:var(--attn)"></i>Waiting on you</span>
+        <span><i style="background:var(--agent)"></i>Agent working</span>
+        <span><i style="background:color-mix(in srgb, var(--agent) 30%, var(--surface))"></i>In transit, nothing to do</span>
+        <span><i style="background:color-mix(in srgb, var(--ok) 45%, var(--surface))"></i>Delivered</span>
+      </div>
+    </div>
+
+    <div class="queue" id="queue"></div>
+  </main>
+
+  <aside class="side">
+    <section>
+      <h2>Working now <span class="label">agent</span></h2>
+      <ul class="working">
+        <li><span class="dot live"></span><div><span class="id">SHP-2041</span> <span class="what">Waiting for FastFreight to accept. Books FedEx automatically in</span> <span class="t" id="fallbackT">…</span></div></li>
+        <li><span class="dot live"></span><div><span class="id">SHP-2045</span> <span class="what">Reading a booking email from Lumen Audio (4 attachments)</span></div></li>
+        <li><span class="dot live"></span><div><span class="id">SHP-2046</span> <span class="what">Comparing 3 quotes for SG → Manila, 260 kg</span></div></li>
+        <li><span class="dot live"></span><div><span class="id">SHP-2047</span> <span class="what">Drafting customer confirmation, sends 09:24</span></div></li>
+        <li><span class="dot live"></span><div><span class="id">SHP-2048</span> <span class="what">Checking ETA after a 3h delay at Johor</span></div></li>
+        <li><span class="dot live"></span><div><span class="id">SHP-2049</span> <span class="what">Matching invoice to booking ref</span></div></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Handled without you <span class="label">today</span></h2>
+      <div class="stats">
+        <div class="stat"><b>31</b><span>runs booked</span></div>
+        <div class="stat"><b>12</b><span>customer emails sent</span></div>
+        <div class="stat"><b>2</b><span>vendor fallbacks</span></div>
+        <div class="stat"><b>$0</b><span>spent over policy</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Spot-check <span class="label" id="spotN">1 of 3</span></h2>
+      <div class="spot" id="spot"></div>
+      <p class="spot-foot" id="spotFoot">Random samples of decisions the agent made alone. 41 checked this month, 1 flagged.</p>
+    </section>
+  </aside>
+</div>
+
+<div class="toast" id="toast" hidden role="status" aria-live="polite">
+  <span id="toastMsg"></span>
+  <button class="btn btn-sm" id="undo">Undo</button>
+  <span class="bar"><i id="toastBar"></i></span>
+</div>
+
+<script>
+(() => {
+  // Simulated clock: the page opens at 09:16:20 and runs in real time.
+  const t0 = Date.now();
+  const START = 9 * 3600 + 16 * 60 + 20;
+  const now = () => START + Math.floor((Date.now() - t0) / 1000);
+  const hm = s => { s = ((s % 86400) + 86400) % 86400; return String(Math.floor(s / 3600)).padStart(2, "0") + ":" + String(Math.floor(s / 60) % 60).padStart(2, "0"); };
+  const left = s => {
+    if (s <= 0) return "now";
+    const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, sec = s % 60;
+    if (h) return h + "h " + String(m).padStart(2, "0") + "m";
+    return m + ":" + String(sec).padStart(2, "0");
+  };
+  const at = (h, m, day = 0) => day * 86400 + h * 3600 + m * 60;
+
+  const cards = [
+    { id: "SHP-2044", kind: "crit", tag: "Possible dangerous goods", lane: "SG → Ho Chi Minh", meta: "180 kg · $940 · Mekong Audio",
+      due: at(11, 30), dueLabel: "Pickup window closes",
+      q: "Is this lithium? FastFreight can't carry dangerous goods on this lane.",
+      ctx: "The commercial invoice lists “power bank 20,000 mAh × 400”. That is almost certainly UN3481 lithium-ion, which needs a DG-certified carrier and a shipper's declaration.",
+      conf: 78, rec: "Ask the customer to confirm the contents and battery spec before booking.",
+      why: ["2 of this customer's last 9 invoices had mislabeled items", "Booking as DG by mistake costs about $310 and a day", "This customer replies in about 25 minutes on average"],
+      opts: [["Ask customer to confirm", "Agent sends a short email it has drafted"], ["Book DHL as dangerous goods", "+$310 · declaration pre-filled"], ["Hold shipment", "Nothing is sent"]],
+      fallback: "If nobody answers by 11:00, the agent holds the shipment and tells the customer pickup may slip." },
+    { id: "SHP-2037", kind: "attn", tag: "Over $2,000 auto-book limit", lane: "SG → Jakarta", meta: "820 kg · 3 pallets · Harbourline Foods",
+      due: at(12, 0), dueLabel: "Quote expires",
+      q: "Approve FastFreight at $2,860?",
+      ctx: "This gate belongs to Ravi, who is out until 13:00. You're covering, and the quote lapses before he's back.",
+      conf: 91, rec: "Approve FastFreight at $2,860.",
+      why: ["Cheapest of 3 quotes: DHL $2,940, FedEx $3,105", "Same carrier on the last 14 Jakarta runs, no incidents", "4% under the 90-day lane average"],
+      opts: [["Approve $2,860", "Agent books and forwards now"], ["Book DHL $2,940", "+$80 · arrives a day sooner"], ["Wait for Ravi", "Quote lapses at 12:00"]],
+      fallback: "If nobody answers by 11:45, the agent asks FastFreight to extend the quote by 4 hours." },
+    { id: "SHP-2033", kind: "crit", tag: "Customs hold · day 2", lane: "SG → Jakarta CGK", meta: "500 kg · Pacific Fixtures",
+      due: at(9, 0, 1), dueLabel: "Storage fees start",
+      q: "Confirm the HS code for line 3 so the broker can release the goods.",
+      ctx: "Indonesian customs queried “stainless steel pipe fittings”. The agent has written the reply to the broker and only needs the code confirmed.",
+      conf: 85, rec: "Use 7307.29: stainless fittings, not threaded.",
+      why: ["The product sheet says socket-weld, not threaded", "The same SKU cleared under 7307.29 in March", "7307.22 (threaded) carries a different duty rate"],
+      opts: [["Confirm 7307.29 and send", "Broker reply goes out now"], ["Use 7307.22 instead", "Agent rewrites the reply"], ["Open the draft", "Edit before anything is sent"]],
+      fallback: "Storage fees of S$45 a day start tomorrow at 09:00." },
+    { id: "Rule", kind: "brain", tag: "Proposed rule", lane: "SG → Bangkok", meta: "Learned from 4 corrections",
+      due: null,
+      q: "You keep switching FedEx to FastFreight on Bangkok runs. Make it a rule?",
+      ctx: "Ravi and Priya made the same change 4 times in 7 days, always on SG → TH shipments under 300 kg.",
+      conf: null, rec: "Backtest on the last 30 days: 7 runs change, +$92 in total, on-time rate 96.1% → 98.4%.",
+      why: [],
+      opts: [["Review the rule", "Opens Delegation", "delegation.html#learned"], ["Not now", "Asks again after 3 more corrections"]],
+      fallback: null }
+  ];
+
+  const state = {}; // id -> chosen option index
+  let focusIdx = 0;
+  const queue = document.getElementById("queue");
+
+  function pending() { return cards.filter(c => state[c.id] === undefined); }
+
+  function render() {
+    queue.innerHTML = "";
+    const open = pending().sort((a, b) => (a.due ?? Infinity) - (b.due ?? Infinity));
+    open.forEach((c, i) => queue.appendChild(cardEl(c, i)));
+    cards.filter(c => state[c.id] !== undefined).forEach(c => queue.appendChild(doneEl(c)));
+    if (!open.length) {
+      const e = document.createElement("div");
+      e.className = "card empty";
+      e.innerHTML = "<b>Nothing needs you right now</b><span>The agent will bring the next decision here, with its deadline.</span>";
+      queue.prepend(e);
+    }
+    const n = open.length;
+    document.getElementById("count").textContent = n;
+    document.getElementById("railCount").textContent = n;
+    focusIdx = Math.min(focusIdx, Math.max(0, n - 1));
+    paintFocus(false);
+    renderTiles();
+    tick();
+  }
+
+  function cardEl(c, i) {
+    const el = document.createElement("article");
+    el.className = "card dcard " + c.kind;
+    el.id = "card-" + c.id;
+    el.tabIndex = 0;
+    el.dataset.id = c.id;
+    const dueHtml = c.due != null ? `<span class="due" data-due="${c.due}">${c.dueLabel} ${hm(c.due)}${c.due >= 86400 ? " tomorrow" : ""} · <b>…</b></span>` : "";
+    const confHtml = c.conf != null
+      ? `<span class="who a">Agent recommends</span><span class="meter" aria-hidden="true"><i style="width:${c.conf}%"></i></span><span class="conf">${c.conf}% confident</span>`
+      : `<span class="who b">Company brain · proposal</span>`;
+    el.innerHTML = `
+      <div class="dc-top">
+        <span class="pill ${c.kind}">${c.tag}</span>
+        <span class="id">${c.id}</span>
+        <span>${c.lane} · ${c.meta}</span>
+        ${dueHtml}
+      </div>
+      <h3>${c.q}</h3>
+      <p class="ctx">${c.ctx}</p>
+      <div class="rec">
+        <div class="rec-h">${confHtml}</div>
+        <p>${c.rec}</p>
+        ${c.why.length ? "<ul>" + c.why.map(w => `<li>${w}</li>`).join("") + "</ul>" : ""}
+      </div>
+      <div class="opts">
+        ${c.opts.map((o, k) => {
+          const cls = k === 0 ? (c.kind === "brain" ? "btn btn-primary opt" : "btn btn-agent opt") : "btn opt";
+          const inner = `<span class="t"><span class="kbd">${k + 1}</span>${o[0]}</span><span class="s">${o[1]}</span>`;
+          return o[2] ? `<a class="${cls}" href="${o[2]}">${inner}</a>` : `<button class="${cls}" data-k="${k}">${inner}</button>`;
+        }).join("")}
+      </div>
+      ${c.fallback ? `<p class="fallback">${c.fallback}</p>` : ""}`;
+    el.querySelectorAll("button[data-k]").forEach(b => b.addEventListener("click", () => decide(c.id, +b.dataset.k)));
+    el.addEventListener("focus", () => { focusIdx = pending().sort((a, b) => (a.due ?? Infinity) - (b.due ?? Infinity)).findIndex(x => x.id === c.id); paintFocus(false); });
+    return el;
+  }
+
+  function doneEl(c) {
+    const el = document.createElement("div");
+    el.className = "card resolved-row";
+    const o = c.opts[state[c.id].k];
+    el.innerHTML = `<span class="ok-mark">✓</span><span class="id">${c.id}</span><span>${o[0]}</span><span class="who h">You · ${hm(state[c.id].t)}</span><span class="faint">${c.kind === "brain" ? "Snoozed" : "Agent resumed the run"}</span>`;
+    return el;
+  }
+
+  let undoTimer = null, lastId = null;
+  function decide(id, k) {
+    const c = cards.find(x => x.id === id);
+    if (c.opts[k][2]) { location.href = c.opts[k][2]; return; }
+    state[id] = { k, t: now() };
+    lastId = id;
+    render();
+    showToast(`${id}: ${c.opts[k][0]}. ${c.kind === "brain" ? "" : "The agent is acting on it."}`);
+  }
+
+  const toast = document.getElementById("toast"), bar = document.getElementById("toastBar");
+  function showToast(msg) {
+    document.getElementById("toastMsg").textContent = msg;
+    toast.hidden = false;
+    bar.style.transition = "none"; bar.style.transform = "scaleX(1)";
+    requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.transition = "transform 8s linear"; bar.style.transform = "scaleX(0)"; }));
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => { toast.hidden = true; }, 8000);
+  }
+  document.getElementById("undo").addEventListener("click", () => {
+    if (lastId) { delete state[lastId]; lastId = null; }
+    toast.hidden = true; clearTimeout(undoTimer); render();
+  });
+
+  function paintFocus(scroll) {
+    const els = [...queue.querySelectorAll(".dcard")];
+    els.forEach((e, i) => e.classList.toggle("focused", i === focusIdx));
+    if (scroll && els[focusIdx]) { els[focusIdx].focus({ preventScroll: true }); els[focusIdx].scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+  }
+
+  document.addEventListener("keydown", e => {
+    if (e.metaKey || e.ctrlKey || e.altKey || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    const open = pending().sort((a, b) => (a.due ?? Infinity) - (b.due ?? Infinity));
+    if (!open.length) return;
+    if (e.key === "j") { focusIdx = Math.min(open.length - 1, focusIdx + 1); paintFocus(true); }
+    else if (e.key === "k") { focusIdx = Math.max(0, focusIdx - 1); paintFocus(true); }
+    else if (/^[1-3]$/.test(e.key)) { const c = open[focusIdx]; const k = +e.key - 1; if (c && c.opts[k]) decide(c.id, k); }
+    else if (e.key === "Enter" && document.activeElement.classList.contains("dcard")) { const c = open[focusIdx]; if (c) decide(c.id, 0); }
+  });
+
+  // Fleet tiles
+  const fleet = [];
+  const lanes = ["SG → KL", "SG → JKT", "SG → BKK", "SG → PEN", "SG → MNL", "SG → HCM", "SG → CGK"];
+  for (let i = 0; i < 22; i++) fleet.push(["done", "Delivered"]);
+  for (let i = 0; i < 17; i++) fleet.push(["transit", "In transit"]);
+  for (let i = 0; i < 6; i++) fleet.push(["working", "Agent working"]);
+  const youIds = { 8: "SHP-2044", 25: "SHP-2037", 40: "SHP-2033" };
+  function renderTiles() {
+    const tiles = document.getElementById("tiles");
+    tiles.innerHTML = "";
+    let f = 0;
+    for (let i = 0; i < 48; i++) {
+      const b = document.createElement("button");
+      b.className = "tile";
+      if (youIds[i]) {
+        const c = cards.find(x => x.id === youIds[i]);
+        const resolved = state[c.id] !== undefined;
+        b.classList.add("you");
+        if (c.kind === "crit") b.classList.add("crit");
+        if (resolved) b.classList.add("resolved");
+        b.title = `${c.id} · ${c.lane} · ${resolved ? "Resolved by you" : c.tag}`;
+        b.setAttribute("aria-label", b.title);
+        if (!resolved) b.addEventListener("click", () => { const el = document.getElementById("card-" + c.id); el.scrollIntoView({ behavior: "smooth", block: "center" }); el.focus({ preventScroll: true }); });
+      } else {
+        const s = fleet[f++ % fleet.length];
+        b.classList.add(s[0]);
+        b.title = `SHP-${2001 + i} · ${lanes[i % lanes.length]} · ${s[1]}`;
+        b.setAttribute("aria-label", b.title);
+        b.tabIndex = -1;
+      }
+      tiles.appendChild(b);
+    }
+  }
+
+  // Spot-check
+  const spots = [
+    { id: "SHP-2029 · SG → Penang · 09:02", text: "Chose DHL at $610 over FastFreight at $575. FastFreight had no pickup before 17:00 and the customer asked for same-day collection.", rule: "Rule: same-day pickup beats price" },
+    { id: "SHP-2031 · SG → KL · 08:40", text: "Sent the customer confirmation without the booking ref because FedEx hadn't issued one yet, then followed up 6 minutes later with the ref.", rule: "Policy: confirm within 15 min" },
+    { id: "SHP-2026 · SG → Manila · 08:11", text: "Fell back from FastFreight to FedEx after 15 minutes with no accept. Cost +$34, still inside the $2,000 auto-book limit.", rule: "Rule: vendor SLA 15 min" }
+  ];
+  let spotI = 0, checked = 41, flagged = 1;
+  function renderSpot() {
+    const el = document.getElementById("spot");
+    if (spotI >= spots.length) {
+      el.innerHTML = `<p><b>All 3 checked.</b> <span class="muted">Your answers go into the agent's track record on the Delegation page.</span></p><a class="btn" href="delegation.html">Open Delegation</a>`;
+      document.getElementById("spotN").textContent = "done";
+      return;
+    }
+    const s = spots[spotI];
+    el.innerHTML = `<span class="id">${s.id}</span><p>${s.text}</p><span class="pill brain" style="justify-self:start">${s.rule}</span>
+      <div class="acts"><button class="btn" data-a="ok">Looks right</button><button class="btn" data-a="flag">Flag it</button></div>`;
+    el.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      checked++; if (b.dataset.a === "flag") flagged++;
+      spotI++;
+      document.getElementById("spotFoot").textContent = `Random samples of decisions the agent made alone. ${checked} checked this month, ${flagged} flagged.`;
+      document.getElementById("spotN").textContent = Math.min(spotI + 1, 3) + " of 3";
+      renderSpot();
+    }));
+  }
+
+  // Clocks
+  function tick() {
+    const n = now();
+    let soonest = Infinity;
+    document.querySelectorAll(".due").forEach(d => {
+      const rem = +d.dataset.due - n;
+      d.querySelector("b").textContent = left(rem);
+      d.classList.toggle("soon", rem < 3600);
+    });
+    pending().forEach(c => { if (c.due != null) soonest = Math.min(soonest, c.due - n); });
+    document.getElementById("nextDue").textContent = soonest === Infinity ? "none" : left(soonest);
+    document.getElementById("fallbackT").textContent = left(at(9, 30) - n);
+  }
+
+  render();
+  renderSpot();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>
